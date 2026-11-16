@@ -56,7 +56,7 @@ export function MatchDetails({
                   const ratio = kdaRatio(p.kills, p.deaths, p.assists);
                   const isMe = p.puuid === match.me.puuid;
                   return (
-                    <tr key={p.puuid} className={isMe ? "bg-raised" : undefined}>
+                    <tr key={p.puuid} className={isMe ? "bg-white/5" : undefined}>
                       <th scope="row" className="rounded-l-lg py-1 pl-2 pr-3 font-normal">
                         <div className="flex items-center gap-2">
                           <div className="relative">
