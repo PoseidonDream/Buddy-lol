@@ -28,7 +28,7 @@ export function TierEmblem({ tier, size = 56 }: { tier: Tier | null; size?: numb
       <path d={shield} fill={`url(#${id})`} />
       <path
         d="M32 11 48 18v13c0 9.5-6.5 17.5-16 21.5C22.5 48.5 16 40.5 16 31V18Z"
-        fill="#0b0d11"
+        fill="#0b0a10"
         opacity="0.62"
       />
       <path d="M32 19.5 41 32l-9 12.5L23 32Z" fill={`url(#${id})`} />

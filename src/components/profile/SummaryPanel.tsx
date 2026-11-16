@@ -96,7 +96,7 @@ export function SummaryPanel({ summary }: { summary: Summary }) {
               </div>
               <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-raised">
                 <div
-                  className="h-full rounded-full bg-lime"
+                  className="h-full rounded-full bg-accent"
                   style={{ width: `${(role.games / busiest) * 100}%` }}
                 />
               </div>

@@ -4,7 +4,7 @@ import { SearchBar } from "./SearchBar";
 export function Wordmark({ className = "" }: { className?: string }) {
   return (
     <span className={`font-semibold tracking-tight ${className}`}>
-      buddy<span className="text-lime">.lol</span>
+      buddy<span className="text-accent">.lol</span>
     </span>
   );
 }

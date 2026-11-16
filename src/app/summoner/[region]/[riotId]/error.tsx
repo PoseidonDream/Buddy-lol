@@ -21,7 +21,7 @@ export default function ProfileError({
         <button
           type="button"
           onClick={() => retry()}
-          className="mt-6 rounded-lg bg-lime px-4 py-2 text-sm font-semibold text-ink hover:opacity-90"
+          className="mt-6 rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white hover:opacity-90"
         >
           Try again
         </button>

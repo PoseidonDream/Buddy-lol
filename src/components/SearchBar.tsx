@@ -45,7 +45,7 @@ export function SearchBar({
   return (
     <form onSubmit={submit} role="search" noValidate>
       <div
-        className={`flex ${height} items-stretch rounded-xl border bg-panel transition-colors focus-within:border-lime ${
+        className={`flex ${height} items-stretch rounded-xl border bg-panel transition-colors focus-within:border-accent ${
           error ? "border-loss" : "border-edge"
         }`}
       >
@@ -92,7 +92,7 @@ export function SearchBar({
         <button
           type="submit"
           disabled={pending}
-          className={`m-1 rounded-lg bg-lime font-semibold text-ink transition-opacity hover:opacity-90 disabled:opacity-60 ${
+          className={`m-1 rounded-lg bg-brand font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60 ${
             large ? "px-5 text-base" : "px-3 text-sm"
           }`}
         >

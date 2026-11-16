@@ -98,7 +98,7 @@ export function ProfileView({ profile, pageSize }: { profile: Profile; pageSize:
                 onClick={() => setFilter(f.id)}
                 aria-pressed={filter === f.id}
                 className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                  filter === f.id ? "bg-lime text-ink" : "text-soft hover:bg-raised hover:text-fg"
+                  filter === f.id ? "bg-brand text-white" : "text-soft hover:bg-raised hover:text-fg"
                 }`}
               >
                 {f.label}
