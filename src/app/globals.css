@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+@theme {
+  /* Surfaces, darkest to lightest */
+  --color-ink: #0b0d11;
+  --color-panel: #13161c;
+  --color-raised: #1a1e26;
+  --color-edge: #262b36;
+
+  /* Text */
+  --color-fg: #e9ebf0;
+  --color-soft: #a3a9b6;
+  --color-faint: #7d8494;
+
+  /* Brand */
+  --color-lime: #d4f24a;
+
+  /* Results follow the game's own convention: blue for a win, red for a loss */
+  --color-win: #5b8dff;
+  --color-win-wash: #121a2e;
+  --color-loss: #ff6170;
+  --color-loss-wash: #27151a;
+  --color-gold: #f0c05a;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-ink);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-lime);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-lime) 35%, transparent);
+}
+
+@utility label-caps {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+
+@utility card {
+  background: var(--color-panel);
+  border: 1px solid var(--color-edge);
+  border-radius: 0.75rem;
+}

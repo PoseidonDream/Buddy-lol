@@ -1,0 +1,97 @@
+import Link from "next/link";
+import { itemIcon, runeIcon, spellIcon } from "@/lib/assets";
+import { RUNES, SPELLS } from "@/lib/game-data";
+import { profilePath } from "@/lib/riot-id";
+import type { ParticipantSummary } from "@/lib/types";
+import { GameIcon } from "../GameIcon";
+
+export function ItemRow({
+  items,
+  assetVersion,
+  size = "size-7",
+}: {
+  items: number[];
+  assetVersion: string;
+  size?: string;
+}) {
+  return (
+    <ul className="flex gap-0.5">
+      {items.map((item, slot) => (
+        <li key={slot} className={slot === 6 ? "ml-1" : undefined}>
+          {item > 0 ? (
+            <GameIcon
+              src={itemIcon(assetVersion, item)}
+              alt=""
+              className={`${size} ${slot === 6 ? "rounded-full" : "rounded"}`}
+            />
+          ) : (
+            <span
+              className={`block ${size} ${slot === 6 ? "rounded-full" : "rounded"} bg-ink/50`}
+            />
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function Loadout({
+  player,
+  assetVersion,
+  size = "size-6",
+}: {
+  player: ParticipantSummary;
+  assetVersion: string;
+  size?: string;
+}) {
+  const tiles = [
+    ...player.spells.map((id) => ({
+      src: spellIcon(assetVersion, id),
+      name: SPELLS[id]?.name ?? "",
+      round: false,
+    })),
+    { src: runeIcon(player.keystone), name: RUNES[player.keystone ?? 0]?.name ?? "", round: true },
+    {
+      src: runeIcon(player.secondaryStyle),
+      name: RUNES[player.secondaryStyle ?? 0]?.name ?? "",
+      round: true,
+    },
+  ];
+  // Column-major: spells on the left, runes on the right.
+  return (
+    <div className="grid grid-flow-col grid-rows-2 gap-0.5">
+      {tiles.map((tile, i) => (
+        <GameIcon
+          key={i}
+          src={tile.src}
+          alt={tile.name}
+          label={tile.name.slice(0, 1)}
+          className={`${size} ${tile.round ? "rounded-full bg-ink/60" : "rounded"}`}
+        />
+      ))}
+    </div>
+  );
+}
+
+export function PlayerLink({
+  player,
+  regionSlug,
+  className = "",
+}: {
+  player: ParticipantSummary;
+  regionSlug: string;
+  className?: string;
+}) {
+  // Bots and very old matches have no tagline, so there is nothing to link to.
+  if (!player.tagLine) return <span className={className}>{player.gameName}</span>;
+  return (
+    <Link
+      href={profilePath(regionSlug, player)}
+      prefetch={false}
+      className={`${className} rounded-sm hover:underline`}
+      title={`${player.gameName}#${player.tagLine}`}
+    >
+      {player.gameName}
+    </Link>
+  );
+}
