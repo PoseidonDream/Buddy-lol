@@ -250,7 +250,8 @@ function lobby(rng: Rng, me: Persona, aram: boolean): { mySide: number; seats: [
   const mySide = rng.chance(0.5) ? 100 : 200;
 
   const used = new Set([myChamp.key]);
-  const names = rng.shuffle(NAMES);
+  // Nobody else in the lobby gets the player's own name.
+  const names = rng.shuffle(NAMES.filter((n) => n.toLowerCase() !== me.gameName.toLowerCase()));
   const seatFor = (teamId: number, role: Position, n: number): Seat => {
     if (teamId === mySide && role === myRole) {
       return { champ: myChamp, role: aram ? null : role, gameName: me.gameName, tagLine: me.tagLine, puuid: me.puuid };

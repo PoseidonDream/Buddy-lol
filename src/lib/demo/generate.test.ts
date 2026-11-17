@@ -101,3 +101,14 @@ describe("sample data by queue", () => {
     expect(page.hasMore).toBe(false);
   });
 });
+
+describe("sample lobbies", () => {
+  it("never give another player the profile owner's name", () => {
+    // "Mid Gap" is also in the pool of names for other players.
+    const { matches } = demoMatches(region, "Mid Gap", "NA1", 0, 60, NOW);
+    for (const m of matches) {
+      const sameName = m.teams.flatMap((t) => t.participants).filter((p) => p.gameName === "Mid Gap");
+      expect(sameName).toHaveLength(1);
+    }
+  });
+});
