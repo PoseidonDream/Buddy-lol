@@ -11,6 +11,9 @@ export function NavLinks() {
   const region = getRegion(useStoredRegion())?.slug ?? DEFAULT_REGION;
   return (
     <nav aria-label="Site" className="flex items-center gap-0.5">
+      <Link href="/champions" className={link}>
+        Champions
+      </Link>
       <Link href="/multisearch" className={link}>
         Multi-search
       </Link>

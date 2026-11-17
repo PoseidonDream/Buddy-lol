@@ -3,7 +3,7 @@
  * current, and which champion a numeric id refers to.
  */
 
-import { CHAMPION_POOL, ITEM_NAMES, type ChampionInfo } from "./game-data";
+import { CHAMPION_POOL, ITEM_NAMES, RUNES, SPELLS, type ChampionInfo } from "./game-data";
 
 const BASE = "https://ddragon.leagueoflegends.com";
 
@@ -15,10 +15,34 @@ const HALF_DAY = 60 * 60 * 12;
 export interface StaticData {
   version: string;
   champion(id: number, apiName?: string): { key: string; name: string };
+  /** Look a champion up by its Data Dragon key, ignoring case. */
+  championByKey(key: string): ChampionInfo | undefined;
+  /** Every champion we know of, by name. */
+  champions(): ChampionInfo[];
   /** `undefined` for an item we have no name for. */
   itemName(id: number): string | undefined;
   /** Whether an item is part of a build (finished items and boots), not a component or consumable. */
   isBuildItem(id: number): boolean;
+  /** A rune or rune tree's name and icon URL. */
+  rune(id: number): NamedIcon | undefined;
+  /** A summoner spell's name and icon URL. */
+  spell(id: number): NamedIcon | undefined;
+}
+
+export interface NamedIcon {
+  name: string;
+  icon: string;
+}
+
+interface RuneTree {
+  id: number;
+  name: string;
+  icon: string;
+  slots: { runes: { id: number; name: string; icon: string }[] }[];
+}
+
+interface SpellFile {
+  data: Record<string, { key: string; name: string; image?: { full?: string } }>;
 }
 
 async function getJson<T>(url: string): Promise<T | null> {
@@ -70,10 +94,34 @@ export async function getStaticData(): Promise<StaticData> {
   const version = versions?.[0] ?? FALLBACK_VERSION;
 
   const data = `${BASE}/cdn/${version}/data/en_US`;
-  const [file, itemFile] = await Promise.all([
+  const [file, itemFile, runeFile, spellFile] = await Promise.all([
     getJson<ChampionFile>(`${data}/champion.json`),
     getJson<ItemFile>(`${data}/item.json`),
+    getJson<RuneTree[]>(`${data}/runesReforged.json`),
+    getJson<SpellFile>(`${data}/summoner.json`),
   ]);
+
+  const runes = new Map<number, NamedIcon>(
+    Object.entries(RUNES).map(([id, r]) => [Number(id), { name: r.name, icon: `${BASE}/cdn/img/${r.icon}` }]),
+  );
+  for (const tree of runeFile ?? []) {
+    runes.set(tree.id, { name: tree.name, icon: `${BASE}/cdn/img/${tree.icon}` });
+    for (const slot of tree.slots) {
+      for (const r of slot.runes) runes.set(r.id, { name: r.name, icon: `${BASE}/cdn/img/${r.icon}` });
+    }
+  }
+
+  const spells = new Map<number, NamedIcon>(
+    Object.entries(SPELLS).map(([id, s]) => [
+      Number(id),
+      { name: s.name, icon: `${BASE}/cdn/${version}/img/spell/${s.key}.png` },
+    ]),
+  );
+  for (const s of Object.values(spellFile?.data ?? {})) {
+    if (s.image?.full) {
+      spells.set(Number(s.key), { name: s.name, icon: `${BASE}/cdn/${version}/img/spell/${s.image.full}` });
+    }
+  }
 
   const items = new Map<number, string>(
     Object.entries(ITEM_NAMES).map(([id, name]) => [Number(id), name]),
@@ -91,9 +139,15 @@ export async function getStaticData(): Promise<StaticData> {
 
   const buildItems = buildItemsFrom(itemFile);
 
+  const byKey = new Map([...champions.values()].map((c) => [c.key.toLowerCase(), c]));
+
   return {
     version,
+    championByKey: (key) => byKey.get(key.toLowerCase()),
+    champions: () => [...byKey.values()].sort((a, b) => a.name.localeCompare(b.name)),
     itemName: (id) => items.get(id),
+    rune: (id) => runes.get(id),
+    spell: (id) => spells.get(id),
     isBuildItem: (id) =>
       buildItems ? buildItems.has(id) : id in ITEM_NAMES && !NOT_BUILD.has(id),
     champion(id, apiName) {
