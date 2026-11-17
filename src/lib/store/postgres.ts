@@ -58,6 +58,20 @@ create table if not exists champion_picks (
 );
 `;
 
+/**
+ * pg currently treats sslmode=prefer, require and verify-ca as verify-full,
+ * and warns that a future version will give them weaker libpq semantics.
+ * Hosted databases such as Neon hand out `sslmode=require`; asking for
+ * verify-full by name keeps today's strict checking, silences the warning,
+ * and stays strict after that change. Everything else is left untouched.
+ */
+export function withStrictSsl(connectionString: string): string {
+  return connectionString.replace(
+    /([?&]sslmode=)(prefer|require|verify-ca)(?=&|#|$)/i,
+    "$1verify-full",
+  );
+}
+
 /** Postgres, used whenever DATABASE_URL is set. Creates its tables on first use. */
 export class PostgresStore implements Store {
   readonly kind = "postgres";
@@ -65,7 +79,7 @@ export class PostgresStore implements Store {
   private ready: Promise<void> | null = null;
 
   constructor(connectionString: string) {
-    this.pool = new Pool({ connectionString, max: 5 });
+    this.pool = new Pool({ connectionString: withStrictSsl(connectionString), max: 5 });
   }
 
   private schema() {
