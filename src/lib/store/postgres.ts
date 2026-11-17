@@ -99,6 +99,42 @@ export class PostgresStore implements Store {
     );
   }
 
+  async recordRanks(snapshots: RankSnapshot[]) {
+    if (snapshots.length === 0) return;
+    await this.schema();
+    // Same rule as recordRank, for a whole ladder in one statement: insert each
+    // snapshot that differs from that player's latest.
+    await this.pool.query(
+      `with input (puuid, region, queue, tier, division, lp, wins, losses, at) as (
+         select * from unnest($1::text[], $2::text[], $3::text[], $4::text[], $5::text[],
+                              $6::int[], $7::int[], $8::int[], $9::float8[])
+       ),
+       latest as (
+         select distinct on (r.puuid, r.queue) r.puuid, r.queue, r.tier, r.division, r.lp, r.wins, r.losses
+         from rank_snapshots r join input i on r.puuid = i.puuid and r.queue = i.queue
+         order by r.puuid, r.queue, r.taken_at desc
+       )
+       insert into rank_snapshots (puuid, region, queue, tier, division, lp, wins, losses, taken_at)
+       select i.puuid, i.region, i.queue, i.tier, i.division, i.lp, i.wins, i.losses, to_timestamp(i.at / 1000.0)
+       from input i left join latest l on l.puuid = i.puuid and l.queue = i.queue
+       where l.puuid is null
+          or (l.tier, l.division, l.lp, l.wins, l.losses)
+             is distinct from (i.tier, i.division, i.lp, i.wins, i.losses)
+       on conflict do nothing`,
+      [
+        snapshots.map((s) => s.puuid),
+        snapshots.map((s) => s.regionSlug),
+        snapshots.map((s) => s.queue),
+        snapshots.map((s) => s.tier),
+        snapshots.map((s) => s.division),
+        snapshots.map((s) => s.lp),
+        snapshots.map((s) => s.wins),
+        snapshots.map((s) => s.losses),
+        snapshots.map((s) => s.at),
+      ],
+    );
+  }
+
   async rankHistory(puuid: string, queue: RankedQueue, since: number) {
     await this.schema();
     const { rows } = await this.pool.query(

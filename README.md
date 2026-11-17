@@ -120,6 +120,23 @@ day, which is all Vercel's free plan allows; for a tier list that keeps up,
 call it more often from any scheduler (every 5 to 10 minutes stays within a
 development key's limits).
 
+## Deploying to Vercel
+
+1. Create a Postgres database (Neon's free tier works), in **Frankfurt**
+   (AWS eu-central-1), and copy its pooled connection string.
+2. Import the repository on Vercel and set `RIOT_API_KEY`, `DATABASE_URL` and
+   `CRON_SECRET` (any long random text) before the first deploy.
+3. Deploy. Every push to `main` deploys again.
+
+`vercel.json` runs the site's functions in Frankfurt (`fra1`), next to both the
+database and Riot's European servers, and schedules the collector once a day.
+If you mostly look up players in another part of the world, move both the
+database and the `regions` entry there; the further apart they are, the slower
+every page that saves data.
+
+A Personal API key is for you and people you know. Before sharing the site
+publicly, apply for a Production key with its address.
+
 ## How it is put together
 
 ```

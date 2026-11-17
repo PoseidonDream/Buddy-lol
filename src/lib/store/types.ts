@@ -51,6 +51,8 @@ export interface Store {
 
   /** Adds a snapshot unless it matches the player's latest one exactly. */
   recordRank(snapshot: RankSnapshot): Promise<void>;
+  /** recordRank for many players at once (one round trip on Postgres). */
+  recordRanks(snapshots: RankSnapshot[]): Promise<void>;
   /** Snapshots taken at or after `since`, oldest first. */
   rankHistory(puuid: string, queue: RankedQueue, since: number): Promise<RankSnapshot[]>;
 
