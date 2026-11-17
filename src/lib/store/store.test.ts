@@ -79,6 +79,22 @@ function suite(name: string, make: () => Store) {
       expect(await store.rankHistory(a, "RANKED_FLEX_SR", 0)).toHaveLength(1);
     });
 
+    it("counts hits per window", async () => {
+      const bucket = `rl-${run}`;
+      expect(await store.countHits(bucket, 60_000, 1)).toBe(1);
+      expect(await store.countHits(bucket, 60_000, 2)).toBe(3);
+      expect(await store.countHits(bucket, 120_000, 1)).toBe(1);
+      expect(await store.countHits(`${bucket}-other`, 60_000, 1)).toBe(1);
+    });
+
+    it("deletes rank snapshots older than a cutoff", async () => {
+      const p = `old-${run}`;
+      await store.recordRank(snap(1, 1_000, { puuid: p, wins: 1 }));
+      await store.recordRank(snap(2, 5_000, { puuid: p, wins: 2 }));
+      expect(await store.pruneRanks(3_000)).toBeGreaterThanOrEqual(1);
+      expect((await store.rankHistory(p, "RANKED_SOLO_5x5", 0)).map((s) => s.lp)).toEqual([2]);
+    });
+
     it("counts each match once", async () => {
       const d = delta(patch);
       expect(await store.recordMatch(d)).toBe(true);

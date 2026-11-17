@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { DemoBanner } from "@/components/DemoBanner";
@@ -7,6 +8,7 @@ import { LadderControls, LadderSkeleton, LadderTable } from "@/components/ladder
 import { ProfileProblem } from "@/components/profile/ProfileProblem";
 import { getLadder } from "@/lib/ladder";
 import { parseLadderQuery } from "@/lib/ladder-url";
+import { LIMIT_MESSAGE, clientIp, takeLookups } from "@/lib/rate-limit";
 import { getRegion } from "@/lib/regions";
 
 type Props = PageProps<"/leaderboards/[region]">;
@@ -45,6 +47,16 @@ async function Ladder({ params, searchParams }: Props) {
   const query = parseLadderQuery(await searchParams);
   // Standings move all day; build the page for each request.
   await connection();
+
+  const allowed = await takeLookups(clientIp(await headers()));
+  if (!allowed.ok) {
+    return (
+      <main className="mx-auto max-w-4xl px-4 py-16">
+        <ProfileProblem error={{ kind: "rate_limited" as const, message: LIMIT_MESSAGE }} />
+      </main>
+    );
+  }
+
   const result = await getLadder(region, query.tier, query.queue, query.page);
 
   if (!result.ok) {

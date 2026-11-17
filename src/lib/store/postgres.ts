@@ -47,6 +47,12 @@ create table if not exists champion_bans (
   bans integer not null,
   primary key (patch, champion)
 );
+create table if not exists rate_hits (
+  bucket text not null,
+  window_start bigint not null,
+  hits integer not null,
+  primary key (bucket, window_start)
+);
 create table if not exists champion_picks (
   patch text not null,
   champion text not null,
@@ -147,6 +153,32 @@ export class PostgresStore implements Store {
         snapshots.map((s) => s.at),
       ],
     );
+  }
+
+  async pruneRanks(before: number) {
+    await this.schema();
+    const result = await this.pool.query(
+      "delete from rank_snapshots where taken_at < to_timestamp($1 / 1000.0)",
+      [before],
+    );
+    return result.rowCount ?? 0;
+  }
+
+  async countHits(bucket: string, windowStart: number, amount: number) {
+    await this.schema();
+    const { rows } = await this.pool.query(
+      `insert into rate_hits (bucket, window_start, hits) values ($1, $2, $3)
+       on conflict (bucket, window_start) do update set hits = rate_hits.hits + excluded.hits
+       returning hits`,
+      [bucket, windowStart, amount],
+    );
+    // Now and then, clear out windows that ended more than two days ago.
+    if (Math.random() < 0.01) {
+      void this.pool
+        .query("delete from rate_hits where window_start < $1", [windowStart - 2 * 24 * 60 * 60 * 1000])
+        .catch(() => {});
+    }
+    return rows[0].hits as number;
   }
 
   async rankHistory(puuid: string, queue: RankedQueue, since: number) {

@@ -52,6 +52,9 @@ All optional except the key. See `.env.example`.
 | `CRON_SECRET`       | Protects the collector endpoint. Vercel Cron sends it automatically.        |
 | `COLLECT_REGIONS`   | Regions the collector visits, comma separated. Default `euw`.               |
 | `BUDDY_DATA_FILE`   | Where to keep the JSON file when there is no database.                      |
+| `CONTACT_URL`       | Where the privacy page sends questions, e.g. `mailto:you@example.com`.     |
+| `RATE_LIMIT_PER_MINUTE` | Lookups one visitor may make per minute. Default 10.                    |
+| `RATE_LIMIT_PER_HOUR`   | Lookups one visitor may make per hour. Default 100.                     |
 | `RIOT_API_BASE_URL` | Send Riot calls elsewhere (a caching proxy, a local stub).                  |
 
 ## What is here
@@ -136,6 +139,31 @@ every page that saves data.
 
 A Personal API key is for you and people you know. Before sharing the site
 publicly, apply for a Production key with its address.
+
+## Running it publicly
+
+What the site does to stay safe and within Riot's limits with strangers using it:
+
+- **Per-visitor limits.** Every lookup that costs Riot requests (a profile, a
+  page of matches, a leaderboard page, each multi-search card) counts against
+  the visitor's IP address: 10 a minute and 100 an hour by default. Past that,
+  pages say to wait a minute and the JSON API answers 429 with `Retry-After`.
+  Counts are shared through the database, so they hold across Vercel's servers,
+  and addresses are stored only as a salted hash and deleted within two days.
+  Sample-data mode is never limited.
+- **Crawlers.** `robots.txt` keeps search engines off profiles, multi-search,
+  the API and leaderboard pages past the first, which would otherwise spend the
+  key's allowance.
+- **Security headers.** A Content Security Policy (scripts only from this site,
+  images also from Data Dragon, no framing), plus `X-Frame-Options`,
+  `X-Content-Type-Options`, `Referrer-Policy`, `Permissions-Policy` and HSTS.
+- **Collector.** Needs `CRON_SECRET`, compared in constant time. Each run also
+  deletes rank snapshots older than 180 days.
+- **Privacy page** at `/privacy`, linked from every page, saying what is kept
+  and for how long. Set `CONTACT_URL` so people know where to send questions.
+
+The Riot key's own limit is shared by everyone; when it runs out, pages say so
+and recover within two minutes. A Production key raises it.
 
 ## How it is put together
 

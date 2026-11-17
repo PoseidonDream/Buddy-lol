@@ -1,6 +1,7 @@
 import { after, type NextRequest } from "next/server";
 import { isServerFilter } from "@/lib/game-data";
 import { getMatchPage } from "@/lib/profile";
+import { LIMIT_MESSAGE, clientIp, takeLookups } from "@/lib/rate-limit";
 import { recordMatches } from "@/lib/record";
 import type { ProfileErrorKind } from "@/lib/types";
 
@@ -26,6 +27,15 @@ export async function GET(
   ctx: RouteContext<"/api/summoner/[region]/[riotId]/matches">,
 ) {
   const { region, riotId } = await ctx.params;
+
+  const allowed = await takeLookups(clientIp(request.headers));
+  if (!allowed.ok) {
+    return Response.json(
+      { ok: false, error: { kind: "rate_limited", message: LIMIT_MESSAGE } },
+      { status: 429, headers: { "Retry-After": String(allowed.retryAfterSec) } },
+    );
+  }
+
   const raw = Number(request.nextUrl.searchParams.get("start") ?? 0);
   const start = Number.isFinite(raw) ? Math.min(MAX_START, Math.max(0, Math.floor(raw))) : 0;
 

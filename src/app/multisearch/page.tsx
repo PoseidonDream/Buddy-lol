@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { DemoBanner } from "@/components/DemoBanner";
@@ -7,6 +8,7 @@ import { MultiSearchForm } from "@/components/multi/MultiSearchForm";
 import { PlayerCard, PlayerCardProblem, PlayerCardSkeleton } from "@/components/multi/PlayerCard";
 import { parseLobby } from "@/lib/lobby";
 import { getProfile, isDemoMode } from "@/lib/profile";
+import { LIMIT_MESSAGE, clientIp, takeLookups } from "@/lib/rate-limit";
 import { DEFAULT_REGION, getRegion } from "@/lib/regions";
 import { riotIdToSlug, type RiotId } from "@/lib/riot-id";
 
@@ -79,6 +81,10 @@ async function Content({ searchParams }: Pick<Props, "searchParams">) {
 }
 
 async function Card({ regionSlug, id }: { regionSlug: string; id: RiotId }) {
+  const allowed = await takeLookups(clientIp(await headers()));
+  if (!allowed.ok) {
+    return <PlayerCardProblem id={id} error={{ kind: "rate_limited" as const, message: LIMIT_MESSAGE }} />;
+  }
   const result = await getProfile(regionSlug, riotIdToSlug(id), { matches: CARD_MATCHES, mastery: 0 });
   return result.ok ? <PlayerCard profile={result.data} /> : <PlayerCardProblem id={id} error={result.error} />;
 }

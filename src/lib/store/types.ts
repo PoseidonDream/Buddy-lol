@@ -56,6 +56,15 @@ export interface Store {
   /** Snapshots taken at or after `since`, oldest first. */
   rankHistory(puuid: string, queue: RankedQueue, since: number): Promise<RankSnapshot[]>;
 
+  /** Rank snapshots older than this are deleted. Returns how many. */
+  pruneRanks(before: number): Promise<number>;
+
+  /**
+   * Adds `amount` to a counter for one time window and returns the new total.
+   * Used for rate limiting; old windows are cleaned up by the store.
+   */
+  countHits(bucket: string, windowStart: number, amount: number): Promise<number>;
+
   /** Adds a game to the champion statistics. False if it was already counted. */
   recordMatch(delta: MatchDelta): Promise<boolean>;
   /** Which of these match ids have been counted already. */

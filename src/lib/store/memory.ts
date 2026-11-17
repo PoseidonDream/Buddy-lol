@@ -106,6 +106,35 @@ export class MemoryStore implements Store {
     this.scheduleSave();
   }
 
+  async pruneRanks(before: number) {
+    await this.loaded;
+    let removed = 0;
+    for (const [key, list] of Object.entries(this.data.ranks)) {
+      const kept = list.filter((s) => s.at >= before);
+      removed += list.length - kept.length;
+      if (kept.length) this.data.ranks[key] = kept;
+      else delete this.data.ranks[key];
+    }
+    if (removed) this.scheduleSave();
+    return removed;
+  }
+
+  /** Rate-limit counters live in memory only; they are useless after a restart anyway. */
+  private hits = new Map<string, { windowStart: number; count: number }>();
+
+  async countHits(bucket: string, windowStart: number, amount: number) {
+    const key = `${bucket}|${windowStart}`;
+    const entry = this.hits.get(key) ?? { windowStart, count: 0 };
+    entry.count += amount;
+    this.hits.set(key, entry);
+    if (this.hits.size > 10_000) {
+      // Drop windows that ended more than two days ago.
+      const cutoff = windowStart - 2 * 24 * 60 * 60 * 1000;
+      for (const [k, v] of this.hits) if (v.windowStart < cutoff) this.hits.delete(k);
+    }
+    return entry.count;
+  }
+
   async recordRanks(snapshots: RankSnapshot[]) {
     for (const s of snapshots) await this.recordRank(s);
   }
