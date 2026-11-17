@@ -55,7 +55,10 @@ export interface ChampionDetail {
   picks: { kind: PickKind; choice: string; games: number; wins: number }[];
 }
 
-/** A private note on a player, written by one of the site's owners. */
+/**
+ * A comment on a player. Comments are public; notes written before comments
+ * existed were private to the site's owners and stay hidden (`public: false`).
+ */
 export interface PlayerNote {
   id: string;
   puuid: string;
@@ -67,6 +70,8 @@ export interface PlayerNote {
   body: string;
   /** Quick labels: preset ids (see note-tags.ts) or short custom text. */
   tags: string[];
+  /** Shown to everyone. Only public comments are ever listed or counted. */
+  public: boolean;
   /** Epoch milliseconds. */
   at: number;
 }
@@ -114,11 +119,11 @@ export interface Store {
 
   /** Saves a note and returns its id. */
   addNote(note: Omit<PlayerNote, "id">): Promise<string>;
-  /** Notes on one player, newest first. */
+  /** Public comments on one player, newest first. */
   listNotes(puuid: string): Promise<PlayerNote[]>;
   /** False if no such note. */
   deleteNote(id: string): Promise<boolean>;
-  /** Note count and tags for each of these players; players without notes are left out. */
+  /** Public comment count and tags for each of these players; players without any are left out. */
   noteSummaries(puuids: string[]): Promise<Record<string, NoteSummary>>;
 
   /** Pins a player, or updates the pin if already pinned. */

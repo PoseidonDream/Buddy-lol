@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useDict } from "@/i18n/client";
 import type { Dict } from "@/i18n/dictionaries";
 import { championIcon } from "@/lib/assets";
@@ -8,6 +9,7 @@ import { APEX_TIERS } from "@/lib/game-data";
 import { rankFromValue, rankValue } from "@/lib/rank-scale";
 import type { NoteSummary } from "@/lib/store/types";
 import type { LiveGame, LivePlayer, LiveTeam, RankedEntry } from "@/lib/types";
+import { profilePath } from "@/lib/riot-id";
 import { useNow } from "@/lib/use-now";
 import { GameIcon } from "../GameIcon";
 import { TagChip } from "../notes/TagChip";
@@ -78,10 +80,15 @@ function PlayerRow({
             />
             <p className="truncate text-[11px] text-faint">
               {player.championName}
-              {notes && (
-                <span className="ml-1.5 rounded bg-gold/15 px-1 text-gold" title={t.live.notesTitle}>
+              {notes && player.tagLine && (
+                <Link
+                  href={`${profilePath(regionSlug, player)}#comments`}
+                  prefetch={false}
+                  className="ml-1.5 rounded bg-gold/15 px-1 text-gold hover:underline"
+                  title={t.live.notesTitle}
+                >
                   {t.live.notes(notes.count)}
-                </span>
+                </Link>
               )}
             </p>
             {notes && notes.tags.length > 0 && (

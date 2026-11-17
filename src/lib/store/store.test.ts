@@ -85,7 +85,7 @@ function suite(name: string, make: () => Store) {
 
     it("keeps notes per player, newest first, and deletes them", async () => {
       const p = `noted-${run}`;
-      const base = { puuid: p, regionSlug: "euw", riotId: "Someone#EUW", author: "Anil", tags: [] };
+      const base = { puuid: p, regionSlug: "euw", riotId: "Someone#EUW", author: "Anil", tags: [], public: true };
       const first = await store.addNote({ ...base, body: "Plays safe early.", at: 1_000 });
       const second = await store.addNote({ ...base, author: "Mate", body: "Tilts after\nfirst death.", at: 2_000 });
       expect(first).not.toBe(second);
@@ -104,11 +104,20 @@ function suite(name: string, make: () => Store) {
 
     it("keeps tags on notes and sums them up per player, most used first", async () => {
       const p = `tagged-${run}`;
-      const base = { puuid: p, regionSlug: "euw", riotId: "Someone#EUW", author: "Anil" };
+      const base = { puuid: p, regionSlug: "euw", riotId: "Someone#EUW", author: "Anil", public: true };
       await store.addNote({ ...base, body: "", tags: ["toxic", "duo with Kaori"], at: 1_000 });
       await store.addNote({ ...base, body: "Again.", tags: ["inter", "toxic"], at: 2_000 });
       expect((await store.listNotes(p)).map((n) => n.tags)).toEqual([["inter", "toxic"], ["toxic", "duo with Kaori"]]);
       expect(await store.noteSummaries([p])).toEqual({ [p]: { count: 2, tags: ["toxic", "duo with Kaori", "inter"] } });
+    });
+
+    it("never lists or counts private notes", async () => {
+      const p = `private-${run}`;
+      const base = { puuid: p, regionSlug: "euw", riotId: "Someone#EUW", author: "Anil", tags: ["toxic"] };
+      await store.addNote({ ...base, body: "Only for us.", public: false, at: 1_000 });
+      await store.addNote({ ...base, body: "For everyone.", public: true, at: 2_000 });
+      expect((await store.listNotes(p)).map((n) => n.body)).toEqual(["For everyone."]);
+      expect(await store.noteSummaries([p])).toEqual({ [p]: { count: 1, tags: ["toxic"] } });
     });
 
     it("pins players, updates a pin, and unpins", async () => {

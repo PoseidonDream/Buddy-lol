@@ -4,7 +4,7 @@ import { after, connection } from "next/server";
 import { Suspense } from "react";
 import { DemoBanner } from "@/components/DemoBanner";
 import { SiteHeader } from "@/components/SiteHeader";
-import { NotesPanel } from "@/components/notes/NotesPanel";
+import { CommentsPanel } from "@/components/notes/CommentsPanel";
 import { LiveGameCard } from "@/components/profile/LiveGameCard";
 import { RankHistoryChart } from "@/components/profile/RankHistoryChart";
 import { ProfileProblem } from "@/components/profile/ProfileProblem";
@@ -12,7 +12,7 @@ import { ProfileSkeleton } from "@/components/profile/ProfileSkeleton";
 import { ProfileView } from "@/components/profile/ProfileView";
 import { getDict, getLocale } from "@/i18n/server";
 import { getLiveGame } from "@/lib/live";
-import { currentWriter } from "@/lib/notes-auth";
+import { notesEnabled } from "@/lib/notes-auth";
 import { getStore } from "@/lib/store";
 import type { NoteSummary } from "@/lib/store/types";
 import { MATCH_PAGE_SIZE, getProfile } from "@/lib/profile";
@@ -106,8 +106,8 @@ async function ProfileSection({ params }: Pick<Props, "params">) {
             </Suspense>
           }
           notes={
-            <Suspense key="NotesPanel" fallback={null}>
-              <NotesPanel profile={profile} />
+            <Suspense key="CommentsPanel" fallback={null}>
+              <CommentsPanel profile={profile} />
             </Suspense>
           }
         />
@@ -125,9 +125,9 @@ async function LiveGame({ profile }: { profile: Profile }) {
   const game = await getLiveGame(profile, await getLocale());
   if (!game) return null;
 
-  // People who have unlocked notes see which players they've noted before.
+  // How many comments each player has, and their most used tags.
   let notes: Record<string, NoteSummary> = {};
-  if (await currentWriter()) {
+  if (notesEnabled()) {
     const puuids = game.teams.flatMap((t) => t.players.flatMap((p) => (p.puuid ? [p.puuid] : [])));
     notes = await getStore()
       .noteSummaries(puuids)

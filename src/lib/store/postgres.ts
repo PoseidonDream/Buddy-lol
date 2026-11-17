@@ -63,6 +63,7 @@ create table if not exists player_notes (
 );
 create index if not exists player_notes_puuid on player_notes (puuid);
 alter table player_notes add column if not exists tags text[] not null default '{}';
+alter table player_notes add column if not exists public boolean not null default false;
 create table if not exists pinned_players (
   puuid text primary key,
   region text not null,
@@ -197,9 +198,9 @@ export class PostgresStore implements Store {
   async addNote(n: Omit<PlayerNote, "id">) {
     await this.schema();
     const { rows } = await this.pool.query(
-      `insert into player_notes (puuid, region, riot_id, author, body, tags, created_at)
-       values ($1, $2, $3, $4, $5, $6::text[], to_timestamp($7 / 1000.0)) returning id`,
-      [n.puuid, n.regionSlug, n.riotId, n.author, n.body, n.tags, n.at],
+      `insert into player_notes (puuid, region, riot_id, author, body, tags, public, created_at)
+       values ($1, $2, $3, $4, $5, $6::text[], $7, to_timestamp($8 / 1000.0)) returning id`,
+      [n.puuid, n.regionSlug, n.riotId, n.author, n.body, n.tags, n.public, n.at],
     );
     return String(rows[0].id);
   }
@@ -208,7 +209,7 @@ export class PostgresStore implements Store {
     await this.schema();
     const { rows } = await this.pool.query(
       `select id, puuid, region, riot_id, author, body, tags, extract(epoch from created_at) * 1000 as at
-       from player_notes where puuid = $1 order by created_at desc, id desc`,
+       from player_notes where puuid = $1 and public order by created_at desc, id desc limit 200`,
       [puuid],
     );
     return rows.map(
@@ -220,6 +221,7 @@ export class PostgresStore implements Store {
         author: r.author,
         body: r.body,
         tags: r.tags ?? [],
+        public: true,
         at: Math.round(Number(r.at)),
       }),
     );
@@ -236,7 +238,7 @@ export class PostgresStore implements Store {
     if (puuids.length === 0) return {};
     await this.schema();
     const { rows } = await this.pool.query(
-      "select puuid, tags from player_notes where puuid = any($1::text[]) order by created_at, id",
+      "select puuid, tags from player_notes where puuid = any($1::text[]) and public order by created_at, id",
       [puuids],
     );
     return summarizeNotes(rows.map((r) => ({ puuid: r.puuid as string, tags: (r.tags ?? []) as string[] })));

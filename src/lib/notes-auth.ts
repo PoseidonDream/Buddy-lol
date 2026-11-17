@@ -2,16 +2,18 @@ import "server-only";
 
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
+import { MAX_NAME } from "./notes-limits";
+
+export { MAX_NAME, MAX_NOTE } from "./notes-limits";
 
 /**
- * Notes are private to the people who know NOTES_PASSWORD. Entering it once
- * sets a cookie holding the writer's name, signed with the password, so
- * changing the password signs everyone out.
+ * NOTES_PASSWORD is the moderators' password: it turns comments on, and
+ * whoever enters it can remove comments, pin players and read the inbox.
+ * Entering it once sets a cookie holding the moderator's name, signed with
+ * the password, so changing the password signs everyone out.
  */
 export const NOTES_COOKIE = "buddy_notes";
 export const NOTES_COOKIE_MAX_AGE = 180 * 24 * 60 * 60;
-export const MAX_NAME = 24;
-export const MAX_NOTE = 1000;
 
 function password(): string | null {
   return process.env.NOTES_PASSWORD?.trim() || null;

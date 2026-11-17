@@ -54,7 +54,7 @@ All optional except the key. See `.env.example`.
 | `COLLECT_REGIONS`   | Regions the collector visits, comma separated. Default `euw`.               |
 | `BUDDY_DATA_FILE`   | Where to keep the JSON file when there is no database.                      |
 | `CONTACT_URL`       | Where the privacy page sends questions, e.g. `mailto:you@example.com`.     |
-| `NOTES_PASSWORD`    | Turns on private player notes and the feedback inbox; anyone with this password can use them. |
+| `NOTES_PASSWORD`    | The moderator password. Turns on comments and the feedback inbox; whoever logs in with it can delete comments and pin players. |
 | `RIOT_VERIFICATION_CODE` | The code Riot asks you to host at `/riot.txt` when applying for a production key. |
 | `RATE_LIMIT_PER_MINUTE` | Lookups one visitor may make per minute. Default 10.                    |
 | `RATE_LIMIT_PER_HOUR`   | Lookups one visitor may make per hour. Default 100.                     |
@@ -93,23 +93,30 @@ heuristic, not something Riot publishes. See `src/lib/score.ts`.
 no solo rank), LP, season win rate and mastery on the champion they picked,
 plus each team's average rank. That costs two extra Riot requests per player.
 
-**Notes** are private notes on players for the people running the site. Set
-`NOTES_PASSWORD`; whoever enters it (with their name) can read, add and delete
-notes on any profile. A note can carry quick tags (Toxic, Carry, Duo, or
-anything typed), and the live game shows each noted player's tags. Without the
-password nobody sees the notes or even the panel. Notes are stored in the same
-database as everything else.
+**Comments.** Anyone can comment on a player's profile, like a review: an
+optional name, quick tags (Toxic, Carry, Duo, or anything typed) and a few
+lines of text. Each player in a finished game's scoreboard has a comment
+button that jumps to their profile's comments, and the live game shows how
+many comments each player has, with their most used tags. Each address can
+post 5 comments an hour and 20 a day; a hidden field catches simple bots.
+Anyone can report a comment, which lands in the inbox.
 
-**Pinned players.** The notes box has a "Pin to home page" button. Pinned
-players appear on the home page (only for people who have unlocked notes) with
+Comments need `NOTES_PASSWORD`, the **moderator password**: without someone
+able to remove abuse, the comments box stays hidden. Log in at `/feedback`
+with your name and that password, and every comment gets a Delete button.
+Notes written before comments existed were private; they stay hidden.
+
+**Pinned players.** Moderators get a "Pin to home page" button on each
+profile. Pinned players appear on the home page (only for moderators) with
 their rank, LP and wins and losses over the last 24 hours, and a red dot while
 they're in a game. The collector also saves their ranks on every run, so the
 24-hour change stays accurate.
 
 **Feedback.** With `NOTES_PASSWORD` set, every page has a "Send feedback"
 button in the footer. Messages (plus the page they came from and an optional
-contact) land in the inbox at `/feedback`, which opens with the same password.
-Each address can send 5 an hour, and a hidden field catches simple bots.
+contact) and reported comments land in the inbox at `/feedback`, which opens
+with the moderator password. Each address can send 5 an hour, and a hidden
+field catches simple bots.
 
 **The tier list** grades champions on win rate pulled toward 50% by a hundred
 games, so a champion needs both a good record and enough games to rank highly.

@@ -1,8 +1,17 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useActionState, useId } from "react";
-import { addNote, deleteNote, unlockNotes, type NotesFormState } from "@/app/actions/notes";
+import {
+  addComment,
+  deleteNote,
+  reportComment,
+  unlockNotes,
+  type NotesFormState,
+  type ReportState,
+} from "@/app/actions/notes";
 import { useDict } from "@/i18n/client";
+import { MAX_NOTE } from "@/lib/notes-limits";
 import { MAX_TAG_LENGTH, PRESET_TAGS } from "@/lib/note-tags";
 
 const PILL_TONES = {
@@ -17,6 +26,7 @@ const button =
   "rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60";
 const initial: NotesFormState = { error: null };
 
+/** The moderators' login: removes comments, pins players, reads the inbox. */
 export function UnlockNotesForm() {
   const t = useDict();
   const uid = useId();
@@ -24,13 +34,13 @@ export function UnlockNotesForm() {
   return (
     <form action={action} className="mt-3 space-y-2">
       <label htmlFor={`${uid}-name`} className="sr-only">
-        {t.notes.name}
+        {t.notes.moderatorName}
       </label>
       <input
         id={`${uid}-name`}
         name="name"
         defaultValue={state.values?.name}
-        placeholder={t.notes.name}
+        placeholder={t.notes.moderatorName}
         autoComplete="nickname"
         maxLength={24}
         className={input}
@@ -58,18 +68,22 @@ export function UnlockNotesForm() {
   );
 }
 
-export function AddNoteForm({
+/** A public comment on a player: optional name, quick tags and text. */
+export function CommentForm({
   puuid,
   region,
   riotId,
+  moderator,
 }: {
   puuid: string;
   region: string;
   riotId: string;
+  /** A logged-in moderator posts under their own name. */
+  moderator: string | null;
 }) {
   const t = useDict();
   const uid = useId();
-  const [state, action, pending] = useActionState(addNote, initial);
+  const [state, action, pending] = useActionState(addComment, initial);
   const checked = new Set(state.values?.tags?.split("\n"));
   return (
     // React resets the form after a successful submission.
@@ -77,6 +91,29 @@ export function AddNoteForm({
       <input type="hidden" name="puuid" value={puuid} />
       <input type="hidden" name="region" value={region} />
       <input type="hidden" name="riotId" value={riotId} />
+      {/* Hidden from people; only bots fill it in. */}
+      <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
+        <label>
+          Website
+          <input name="website" tabIndex={-1} autoComplete="off" />
+        </label>
+      </div>
+      {!moderator && (
+        <>
+          <label htmlFor={`${uid}-name`} className="sr-only">
+            {t.notes.name}
+          </label>
+          <input
+            id={`${uid}-name`}
+            name="name"
+            defaultValue={state.values?.name}
+            placeholder={t.notes.name}
+            autoComplete="nickname"
+            maxLength={24}
+            className={input}
+          />
+        </>
+      )}
       <fieldset>
         <legend className="sr-only">{t.notes.tagsLegend}</legend>
         <div className="flex flex-wrap gap-1.5">
@@ -116,7 +153,7 @@ export function AddNoteForm({
         name="body"
         defaultValue={state.values?.body}
         rows={3}
-        maxLength={1000}
+        maxLength={MAX_NOTE}
         placeholder={t.notes.placeholder}
         className={`${input} resize-y`}
       />
@@ -125,13 +162,17 @@ export function AddNoteForm({
           {state.error}
         </p>
       )}
-      <button type="submit" disabled={pending} className={button}>
-        {pending ? t.notes.saving : t.notes.save}
-      </button>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={pending} className={button}>
+          {pending ? t.notes.saving : t.notes.save}
+        </button>
+        <p className="text-[11px] leading-snug text-faint">{t.notes.publicNote}</p>
+      </div>
     </form>
   );
 }
 
+/** For moderators: removes a comment. */
 export function DeleteNoteButton({ id }: { id: string }) {
   const t = useDict();
   return (
@@ -144,6 +185,32 @@ export function DeleteNoteButton({ id }: { id: string }) {
       <input type="hidden" name="id" value={id} />
       <button type="submit" className="rounded text-xs text-faint hover:text-loss">
         {t.common.delete}
+      </button>
+    </form>
+  );
+}
+
+const reportInitial: ReportState = { sent: false };
+
+/** For everyone: sends a comment to the moderators' inbox. */
+export function ReportButton({ id, riotId, excerpt }: { id: string; riotId: string; excerpt: string }) {
+  const t = useDict();
+  const page = usePathname();
+  const [state, action, pending] = useActionState(reportComment, reportInitial);
+  if (state.sent) return <span className="text-xs text-faint">{t.notes.reported}</span>;
+  return (
+    <form
+      action={action}
+      onSubmit={(e) => {
+        if (!window.confirm(t.notes.confirmReport)) e.preventDefault();
+      }}
+    >
+      <input type="hidden" name="id" value={id} />
+      <input type="hidden" name="riotId" value={riotId} />
+      <input type="hidden" name="excerpt" value={excerpt} />
+      <input type="hidden" name="page" value={page} />
+      <button type="submit" disabled={pending} className="rounded text-xs text-faint hover:text-loss">
+        {t.notes.report}
       </button>
     </form>
   );

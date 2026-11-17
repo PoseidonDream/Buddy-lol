@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useDict } from "@/i18n/client";
 import type { Dict } from "@/i18n/dictionaries";
 import { championIcon } from "@/lib/assets";
 import { formatCompact, formatNumber, initials, kdaRatio } from "@/lib/format";
+import { profilePath } from "@/lib/riot-id";
 import type { ItemNames, MatchSummary, TeamSummary } from "@/lib/types";
 import { GameIcon } from "../GameIcon";
 import { ItemRow, Loadout, PlayerLink, ScoreBadge } from "./MatchParts";
@@ -84,6 +86,19 @@ export function MatchDetails({
                             regionSlug={regionSlug}
                             className={`max-w-32 truncate text-sm ${isMe ? "font-semibold" : ""}`}
                           />
+                          {!isMe && p.tagLine && (
+                            <Link
+                              href={`${profilePath(regionSlug, p)}#comments`}
+                              prefetch={false}
+                              title={t.scoreboard.comment(p.gameName)}
+                              aria-label={t.scoreboard.comment(p.gameName)}
+                              className="shrink-0 rounded p-0.5 text-faint transition-colors hover:text-accent"
+                            >
+                              <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                <path d="M4 5h16v11H8l-4 4V5Z" strokeLinejoin="round" />
+                              </svg>
+                            </Link>
+                          )}
                         </div>
                       </th>
                       <td className="py-1 pr-3">

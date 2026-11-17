@@ -94,7 +94,8 @@ export class MemoryStore implements Store {
       if (parsed.version === 1) {
         this.data = { ...empty(), ...parsed };
         // Notes saved before tags existed.
-        this.data.notes = this.data.notes.map((n) => ({ ...n, tags: n.tags ?? [] }));
+        // Notes saved before tags existed, or before comments were public.
+        this.data.notes = this.data.notes.map((n) => ({ ...n, tags: n.tags ?? [], public: n.public ?? false }));
         this.seen = new Set(this.data.seen);
       }
     } catch {
@@ -144,7 +145,7 @@ export class MemoryStore implements Store {
 
   async listNotes(puuid: string) {
     await this.loaded;
-    return this.data.notes.filter((n) => n.puuid === puuid).sort((a, b) => b.at - a.at);
+    return this.data.notes.filter((n) => n.puuid === puuid && n.public).sort((a, b) => b.at - a.at);
   }
 
   async deleteNote(id: string) {
@@ -160,7 +161,7 @@ export class MemoryStore implements Store {
     await this.loaded;
     const wanted = new Set(puuids);
     // Oldest first, so tags used equally often keep the order they were first used in.
-    const notes = this.data.notes.filter((n) => wanted.has(n.puuid)).sort((a, b) => a.at - b.at);
+    const notes = this.data.notes.filter((n) => wanted.has(n.puuid) && n.public).sort((a, b) => a.at - b.at);
     return summarizeNotes(notes);
   }
 
