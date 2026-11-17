@@ -2,7 +2,7 @@ import { championIcon } from "@/lib/assets";
 import { formatCompact, formatKda, formatNumber, kdaRatio } from "@/lib/format";
 import type { ItemNames, MatchSummary, TeamSummary } from "@/lib/types";
 import { GameIcon, initials } from "../GameIcon";
-import { ItemRow, Loadout, PlayerLink } from "./MatchParts";
+import { ItemRow, Loadout, PlayerLink, ScoreBadge } from "./MatchParts";
 import { kdaTone } from "./SummaryPanel";
 
 function teamTitle(match: MatchSummary, team: TeamSummary): string {
@@ -33,7 +33,7 @@ export function MatchDetails({
         const tone = match.remake ? "text-soft" : team.win ? "text-win" : "text-loss";
         return (
           <div key={team.id} className="overflow-x-auto">
-            <table className="w-full min-w-[640px] border-separate border-spacing-y-1 text-left text-xs">
+            <table className="w-full min-w-[720px] border-separate border-spacing-y-1 text-left text-xs">
               <caption className="mb-1 text-left">
                 <span className={`font-semibold ${tone}`}>{teamTitle(match, team)}</span>
                 <span className="ml-3 font-mono text-faint">
@@ -45,6 +45,7 @@ export function MatchDetails({
               <thead>
                 <tr className="label-caps">
                   <th scope="col" className="pb-1 font-normal">Player</th>
+                  <th scope="col" className="pb-1 font-normal">Score</th>
                   <th scope="col" className="pb-1 font-normal">KDA</th>
                   <th scope="col" className="pb-1 font-normal">Damage</th>
                   <th scope="col" className="pb-1 font-normal">CS</th>
@@ -80,6 +81,9 @@ export function MatchDetails({
                           />
                         </div>
                       </th>
+                      <td className="py-1 pr-3">
+                        <ScoreBadge player={p} />
+                      </td>
                       <td className="py-1 pr-3 font-mono tabular-nums">
                         <div>
                           {p.kills}/{p.deaths}/{p.assists}

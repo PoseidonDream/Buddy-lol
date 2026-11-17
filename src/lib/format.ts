@@ -49,6 +49,13 @@ export function percent(part: number, total: number): number {
   return total === 0 ? 0 : Math.round((part / total) * 100);
 }
 
+/** 1 -> "1st", 22 -> "22nd". */
+export function ordinal(n: number): string {
+  const tens = n % 100;
+  const suffix = tens > 10 && tens < 14 ? "th" : (["th", "st", "nd", "rd"][n % 10] ?? "th");
+  return `${n}${suffix}`;
+}
+
 export const MULTI_KILL_NAMES: Record<number, string> = {
   2: "Double kill",
   3: "Triple kill",

@@ -74,6 +74,12 @@ export interface ParticipantSummary {
   largestMultiKill: number;
   /** Final placement, only in modes that rank teams (Arena). */
   placement: number | null;
+  /** Our 0-10 rating of this player's game (see score.ts). 0 in a remake. */
+  score: number;
+  /** 1 for the best score in the game. 0 in a remake. */
+  scoreRank: number;
+  /** MVP: best score on a winning team. ACE: best score on a losing team. */
+  badge: "MVP" | "ACE" | null;
 }
 
 export interface TeamSummary {
@@ -99,6 +105,8 @@ export interface MatchSummary {
   durationSec: number;
   /** Ended in an early surrender: counts as neither a win nor a loss. */
   remake: boolean;
+  /** Game patch as "major.minor", e.g. "16.22". Empty if unknown. */
+  patch: string;
   /** The player this history belongs to. */
   me: ParticipantSummary;
   teams: TeamSummary[];

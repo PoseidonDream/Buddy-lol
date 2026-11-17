@@ -1,6 +1,7 @@
 /** Riot API responses -> the view models in ../types. Pure functions. */
 
 import { POSITIONS, TIERS } from "../game-data";
+import { ratePlayers } from "../score";
 import type {
   MasteryEntry,
   MatchSummary,
@@ -100,7 +101,17 @@ function mapParticipant(p: ParticipantDto, champion: ChampionLookup): Participan
     secondaryStyle: secondary?.style ?? null,
     largestMultiKill: p.largestMultiKill ?? 0,
     placement: arena ? (p.subteamPlacement ?? p.placement ?? null) : null,
+    // Filled in by ratePlayers once the whole match is known.
+    score: 0,
+    scoreRank: 0,
+    badge: null,
   };
+}
+
+/** "16.22.731.2941" -> "16.22" */
+export function patchOf(gameVersion: string | undefined): string {
+  const [major, minor] = (gameVersion ?? "").split(".");
+  return major && minor ? `${major}.${minor}` : "";
 }
 
 /**
@@ -152,13 +163,17 @@ export function mapMatch(
       : a.id - b.id,
   );
 
+  const remake = info.participants.some((p) => p.gameEndedInEarlySurrender);
+  if (!remake) ratePlayers(ordered);
+
   return {
     id: dto.metadata.matchId,
     queueId: info.queueId,
     gameMode: info.gameMode ?? "",
     endedAt,
     durationSec,
-    remake: info.participants.some((p) => p.gameEndedInEarlySurrender),
+    remake,
+    patch: patchOf(info.gameVersion),
     me,
     teams: ordered,
   };

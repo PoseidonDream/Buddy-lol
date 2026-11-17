@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { itemIcon, runeIcon, spellIcon } from "@/lib/assets";
+import { ordinal } from "@/lib/format";
 import { RUNES, SPELLS } from "@/lib/game-data";
 import { profilePath } from "@/lib/riot-id";
 import type { ItemNames, ParticipantSummary } from "@/lib/types";
@@ -34,6 +35,31 @@ export function ItemRow({
         </li>
       ))}
     </ul>
+  );
+}
+
+/**
+ * The player's score for the game and where it ranks. Renders nothing for a
+ * remake, where nobody is scored.
+ */
+export function ScoreBadge({ player }: { player: ParticipantSummary }) {
+  if (player.scoreRank === 0) return null;
+  const tone =
+    player.badge === "MVP"
+      ? "bg-gold/15 text-gold"
+      : player.badge === "ACE"
+        ? "bg-accent/15 text-accent"
+        : "bg-white/5 text-soft";
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 font-mono text-xs"
+      title="Buddy score: this game rated from 0 to 10 against everyone else in it"
+    >
+      <span className="tabular-nums text-fg">{player.score.toFixed(1)}</span>
+      <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${tone}`}>
+        {player.badge ?? ordinal(player.scoreRank)}
+      </span>
+    </span>
   );
 }
 

@@ -7,6 +7,7 @@ import {
   formatDuration,
   formatKda,
   kdaRatio,
+  ordinal,
   percent,
   timeAgo,
 } from "@/lib/format";
@@ -15,7 +16,7 @@ import { highlights, outcomeOf, type Outcome } from "@/lib/stats";
 import type { ItemNames, MatchSummary } from "@/lib/types";
 import { GameIcon, initials } from "../GameIcon";
 import { MatchDetails } from "./MatchDetails";
-import { ItemRow, Loadout, PlayerLink } from "./MatchParts";
+import { ItemRow, Loadout, PlayerLink, ScoreBadge } from "./MatchParts";
 import { kdaTone } from "./SummaryPanel";
 
 const OUTCOME_STYLE: Record<Outcome, { card: string; text: string; label: string }> = {
@@ -23,11 +24,6 @@ const OUTCOME_STYLE: Record<Outcome, { card: string; text: string; label: string
   loss: { card: "border-l-loss bg-loss-wash", text: "text-loss", label: "Defeat" },
   remake: { card: "border-l-faint bg-panel", text: "text-soft", label: "Remake" },
 };
-
-function ordinal(n: number): string {
-  const suffix = ["th", "st", "nd", "rd"][n % 100 > 10 && n % 100 < 14 ? 0 : Math.min(n % 10, 4) % 4];
-  return `${n}${suffix}`;
-}
 
 function Roster({
   match,
@@ -137,6 +133,9 @@ export function MatchCard({
               <p className="mt-0.5 font-mono text-xs">
                 <span className={kdaTone(ratio)}>{formatKda(ratio)}</span>
                 <span className="text-faint"> KDA</span>
+              </p>
+              <p className="mt-1.5">
+                <ScoreBadge player={me} />
               </p>
             </div>
 

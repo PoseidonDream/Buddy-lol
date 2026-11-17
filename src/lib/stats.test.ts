@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, formatKda, kdaRatio, timeAgo } from "./format";
+import { formatDuration, formatKda, kdaRatio, ordinal, timeAgo } from "./format";
 import { highlights, outcomeOf, summarize } from "./stats";
 import type { MatchSummary, ParticipantSummary } from "./types";
 
@@ -9,6 +9,7 @@ function me(extra: Partial<ParticipantSummary>): ParticipantSummary {
     champLevel: 18, teamId: 100, win: true, position: "MIDDLE", kills: 0, deaths: 0, assists: 0, cs: 0, gold: 0,
     damage: 0, damageTaken: 0, visionScore: 0, wardsPlaced: 0, wardsKilled: 0, controlWards: 0,
     items: [0, 0, 0, 0, 0, 0, 0], spells: [4, 14], keystone: null, secondaryStyle: null, largestMultiKill: 0, placement: null,
+    score: 0, scoreRank: 0, badge: null,
     ...extra,
   };
 }
@@ -16,7 +17,7 @@ function me(extra: Partial<ParticipantSummary>): ParticipantSummary {
 function game(id: string, player: Partial<ParticipantSummary>, teamKills: number, extra: Partial<MatchSummary> = {}): MatchSummary {
   const p = me(player);
   return {
-    id, queueId: 420, gameMode: "CLASSIC", endedAt: 0, durationSec: 1800, remake: false, me: p,
+    id, queueId: 420, gameMode: "CLASSIC", endedAt: 0, durationSec: 1800, remake: false, patch: "16.22", me: p,
     teams: [
       { id: 100, win: p.win, kills: teamKills, gold: 0, towers: 0, dragons: 0, barons: 0, placement: null, participants: [p] },
       { id: 200, win: !p.win, kills: 0, gold: 0, towers: 0, dragons: 0, barons: 0, placement: null, participants: [] },
@@ -110,5 +111,13 @@ describe("outcomeOf", () => {
     expect(outcomeOf(game("a", { win: true }, 1))).toBe("win");
     expect(outcomeOf(game("b", { win: false }, 1))).toBe("loss");
     expect(outcomeOf(game("c", { win: true }, 1, { remake: true }))).toBe("remake");
+  });
+});
+
+describe("ordinal", () => {
+  it("picks the right suffix", () => {
+    expect([1, 2, 3, 4, 10, 11, 12, 13, 21, 22, 23, 101, 111].map(ordinal)).toEqual([
+      "1st", "2nd", "3rd", "4th", "10th", "11th", "12th", "13th", "21st", "22nd", "23rd", "101st", "111th",
+    ]);
   });
 });

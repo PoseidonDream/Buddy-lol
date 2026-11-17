@@ -97,6 +97,8 @@ export interface MatchDto {
     gameDuration: number;
     gameEndTimestamp?: number;
     gameMode?: string;
+    /** Full build number, e.g. "16.22.731.2941". */
+    gameVersion?: string;
     queueId: number;
     participants: ParticipantDto[];
     teams?: TeamDto[];

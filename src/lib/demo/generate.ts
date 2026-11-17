@@ -19,9 +19,12 @@ import type {
   Tier,
 } from "../types";
 import { riotIdToSlug } from "../riot-id";
+import { ratePlayers } from "../score";
 import { Rng, hashString } from "./random";
 
 const TOTAL_MATCHES = 60;
+/** Every sample game is "played" on this patch. */
+export const DEMO_PATCH = "16.22";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 type Champ = (typeof CHAMPION_POOL)[number];
@@ -204,6 +207,9 @@ function buildTeam(
       largestMultiKill:
         k >= 12 && rng.chance(0.1) ? 5 : k >= 9 ? rng.pick([2, 3, 3, 4]) : k >= 5 ? rng.pick([1, 2, 2, 3]) : Math.min(k, rng.pick([1, 2])),
       placement: null,
+      score: 0,
+      scoreRank: 0,
+      badge: null,
     };
   });
 
@@ -280,6 +286,8 @@ function buildMatch(me: Persona, index: number, anchor: number): MatchSummary {
     );
   });
 
+  if (!remake) ratePlayers(teams);
+
   return {
     id: `DEMO_${hashString(me.seed).toString(36)}_${index}`,
     queueId,
@@ -287,6 +295,7 @@ function buildMatch(me: Persona, index: number, anchor: number): MatchSummary {
     endedAt: Math.round(endedAt),
     durationSec: Math.round(minutes * 60),
     remake,
+    patch: DEMO_PATCH,
     me: teams.flatMap((t) => t.participants).find((p) => p.puuid === me.puuid)!,
     teams,
   };
