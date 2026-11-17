@@ -1,7 +1,8 @@
 import { after, type NextRequest } from "next/server";
 import { isServerFilter } from "@/lib/game-data";
 import { getMatchPage } from "@/lib/profile";
-import { LIMIT_MESSAGE, clientIp, takeLookups } from "@/lib/rate-limit";
+import { requestDict, requestLocale } from "@/i18n/request";
+import { clientIp, takeLookups } from "@/lib/rate-limit";
 import { recordMatches } from "@/lib/record";
 import type { ProfileErrorKind } from "@/lib/types";
 
@@ -31,7 +32,7 @@ export async function GET(
   const allowed = await takeLookups(clientIp(request.headers));
   if (!allowed.ok) {
     return Response.json(
-      { ok: false, error: { kind: "rate_limited", message: LIMIT_MESSAGE } },
+      { ok: false, error: { kind: "rate_limited", message: (await requestDict()).errors.limit } },
       { status: 429, headers: { "Retry-After": String(allowed.retryAfterSec) } },
     );
   }
@@ -42,12 +43,12 @@ export async function GET(
   const queue = request.nextUrl.searchParams.get("queue");
   if (queue !== null && !isServerFilter(queue)) {
     return Response.json(
-      { ok: false, error: { kind: "invalid", message: "Unknown queue filter." } },
+      { ok: false, error: { kind: "invalid", message: (await requestDict()).errors.noQueue } },
       { status: 400 },
     );
   }
 
-  const result = await getMatchPage(region, riotId, start, queue ?? undefined);
+  const result = await getMatchPage(region, riotId, start, queue ?? undefined, await requestLocale());
   if (result.ok) {
     const { matches } = result.data;
     after(() => recordMatches(matches));

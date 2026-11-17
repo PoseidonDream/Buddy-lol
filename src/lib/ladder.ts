@@ -1,7 +1,10 @@
 import "server-only";
 
+import { dictionaries } from "@/i18n/dictionaries";
+import type { Locale } from "@/i18n/config";
+
 import { demoLadder } from "./demo/ladder";
-import { isDemoMode } from "./profile";
+import { describeRiotError, isDemoMode } from "./profile";
 import { getRegion, type Region } from "./regions";
 import { getAccountByPuuid, getApexLeague } from "./riot/api";
 import { RiotApiError } from "./riot/client";
@@ -88,9 +91,10 @@ export async function getLadder(
   tier: ApexTier,
   queue: RankedQueue,
   page: number,
+  locale: Locale = "en",
 ): Promise<Result<LadderPage>> {
   const region = getRegion(regionSlug);
-  if (!region) return fail("invalid", "That region doesn't exist.");
+  if (!region) return fail("invalid", dictionaries[locale].errors.noRegion);
 
   const demo = isDemoMode();
   try {
@@ -121,13 +125,6 @@ export async function getLadder(
       },
     };
   } catch (err) {
-    if (!(err instanceof RiotApiError)) throw err;
-    if (err.status === 429) {
-      return fail("rate_limited", "We're asking Riot for too much at once. Give it a minute and try again.");
-    }
-    if (err.status === 401 || err.status === 403) {
-      return fail("auth", "Riot rejected the API key. Development keys expire after 24 hours, so it may need replacing.");
-    }
-    return fail("upstream", "Riot's servers didn't answer properly. Try again in a moment.");
+    return describeRiotError(err, locale);
   }
 }

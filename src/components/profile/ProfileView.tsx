@@ -1,13 +1,14 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { useDict } from "@/i18n/client";
 import {
   QUEUE_FILTERS,
   isServerFilter,
   queueGroup,
   type QueueGroup,
 } from "@/lib/game-data";
-import { outcomeOf, summarize } from "@/lib/stats";
+import { outcomeOf, playedWith, summarize } from "@/lib/stats";
 import type {
   ItemNames,
   MatchPage,
@@ -20,6 +21,7 @@ import { useNow } from "@/lib/use-now";
 import { RememberProfile } from "../RecentSearches";
 import { MasteryList, RecentChampions } from "./ChampionLists";
 import { MatchCard } from "./MatchCard";
+import { PlayedWith } from "./PlayedWith";
 import { ProfileHeader } from "./ProfileHeader";
 import { RankCard } from "./RankCard";
 import { SummaryPanel } from "./SummaryPanel";
@@ -74,6 +76,7 @@ export function ProfileView({
   /** Private notes, rendered right under the rank cards. */
   notes?: React.ReactNode;
 }) {
+  const t = useDict();
   const now = useNow(profile.generatedAt);
   const headingId = useId();
   const [filter, setFilter] = useState<Filter>("all");
@@ -100,6 +103,7 @@ export function ProfileView({
 
   const summary = useMemo(() => summarize(visible), [visible]);
   const form = useMemo(() => visible.slice(0, 20).map(outcomeOf), [visible]);
+  const teammates = useMemo(() => playedWith(visible), [visible]);
   const itemNames = useMemo(
     () => ({ ...moreItemNames, ...profile.itemNames }),
     [moreItemNames, profile.itemNames],
@@ -145,7 +149,7 @@ export function ProfileView({
     } catch {
       patch({
         loading: false,
-        error: "Couldn't load more matches. Check your connection and try again.",
+        error: t.profileView.network,
       });
     }
   }
@@ -185,7 +189,7 @@ export function ProfileView({
         <div className="min-w-0 space-y-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
           <div
             role="group"
-            aria-label="Filter matches by queue"
+            aria-label={t.profileView.filter}
             className="flex gap-1 overflow-x-auto rounded-xl border border-edge bg-panel p-1"
           >
             {QUEUE_FILTERS.map((f) => (
@@ -200,7 +204,7 @@ export function ProfileView({
                     : "text-soft hover:bg-raised hover:text-fg"
                 }`}
               >
-                {f.label}
+                {t.profileView.queues[f.id]}
               </button>
             ))}
           </div>
@@ -209,7 +213,7 @@ export function ProfileView({
 
           <section aria-labelledby={headingId} aria-busy={state.loading}>
             <h2 id={headingId} className="sr-only">
-              Match history
+              {t.profileView.history}
             </h2>
             {visible.length > 0 ? (
               <ul className="space-y-2">
@@ -227,7 +231,7 @@ export function ProfileView({
             ) : (
               !state.loading &&
               filter === "all" && (
-                <p className="card p-6 text-center text-soft">No recent matches on record.</p>
+                <p className="card p-6 text-center text-soft">{t.profileView.noMatches}</p>
               )
             )}
 
@@ -243,7 +247,7 @@ export function ProfileView({
                 disabled={state.loading}
                 className="mt-3 w-full rounded-xl border border-edge bg-panel py-3 text-sm font-medium transition-colors hover:border-faint disabled:opacity-60"
               >
-                {state.loading ? "Loading…" : "Show more matches"}
+                {state.loading ? t.common.loading : t.profileView.more}
               </button>
             )}
           </section>
@@ -251,6 +255,12 @@ export function ProfileView({
 
         <div className="grid gap-4 sm:max-lg:grid-cols-2 lg:col-start-1 lg:row-start-2">
           <RecentChampions champions={summary.champions} assetVersion={profile.assetVersion} />
+          <PlayedWith
+            teammates={teammates}
+            games={visible.filter((m) => !m.remake).length}
+            regionSlug={profile.regionSlug}
+            assetVersion={profile.assetVersion}
+          />
           <MasteryList mastery={profile.mastery} assetVersion={profile.assetVersion} now={now} />
         </div>
       </div>

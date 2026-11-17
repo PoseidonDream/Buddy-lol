@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useId, useMemo, useState } from "react";
 import { championIcon } from "@/lib/assets";
 import { initials } from "@/lib/format";
-import { POSITION_NAMES } from "@/lib/game-data";
+import { useDict } from "@/i18n/client";
 import type { Position } from "@/lib/types";
 import { GameIcon } from "../GameIcon";
 
@@ -45,6 +45,7 @@ export function TierTable({
   assetVersion: string;
   patch: string;
 }) {
+  const t = useDict();
   const uid = useId();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({ key: "tier", desc: false });
@@ -93,13 +94,13 @@ export function TierTable({
   return (
     <div>
       <label htmlFor={`${uid}-filter`} className="sr-only">
-        Find a champion
+        {t.tierList.find}
       </label>
       <input
         id={`${uid}-filter`}
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Find a champion"
+        placeholder={t.tierList.find}
         autoComplete="off"
         className="mb-3 h-10 w-full rounded-lg border border-edge bg-panel px-3 text-sm outline-none placeholder:text-faint focus:border-accent sm:w-72"
       />
@@ -108,15 +109,15 @@ export function TierTable({
         <table className="w-full table-fixed text-left text-sm">
           <thead className="border-b border-edge">
             <tr>
-              {header("tier", "Tier", "w-20 pl-4")}
-              {header("championName", "Champion")}
+              {header("tier", t.tierList.tier, "w-20 pl-4")}
+              {header("championName", t.tierList.champion)}
               <th scope="col" className="label-caps w-24 py-2 font-normal max-sm:hidden">
-                Role
+                {t.tierList.role}
               </th>
-              {header("winRate", "Win", "w-16 text-right sm:w-24")}
-              {header("pickRate", "Pick", "w-16 text-right sm:w-24 max-[420px]:hidden")}
-              {header("banRate", "Ban", "w-24 text-right max-md:hidden")}
-              {header("games", "Games", "w-24 pr-4 text-right max-md:hidden")}
+              {header("winRate", t.ladder.winShort, "w-16 text-right sm:w-24")}
+              {header("pickRate", t.tierList.pick, "w-16 text-right sm:w-24 max-[420px]:hidden")}
+              {header("banRate", t.tierList.ban, "w-24 text-right max-md:hidden")}
+              {header("games", t.ladder.games, "w-24 pr-4 text-right max-md:hidden")}
             </tr>
           </thead>
           <tbody className="divide-y divide-edge">
@@ -128,7 +129,7 @@ export function TierTable({
                       {r.tier}
                     </span>
                   ) : (
-                    <span className="text-xs text-faint" title="Not enough games yet">
+                    <span className="text-xs text-faint" title={t.tierList.notEnough}>
                       –
                     </span>
                   )}
@@ -147,7 +148,7 @@ export function TierTable({
                     <span className="truncate">{r.championName}</span>
                   </Link>
                 </td>
-                <td className="py-2 text-soft max-sm:hidden">{POSITION_NAMES[r.position]}</td>
+                <td className="py-2 text-soft max-sm:hidden">{t.game.position(r.position)}</td>
                 <td className="py-2 text-right font-mono tabular-nums">{pct(r.winRate)}</td>
                 <td className="py-2 text-right font-mono tabular-nums text-soft max-[420px]:hidden">
                   {pct(r.pickRate)}
@@ -163,7 +164,7 @@ export function TierTable({
           </tbody>
         </table>
         {shown.length === 0 && (
-          <p className="p-6 text-center text-sm text-soft">No champion matches “{query}”.</p>
+          <p className="p-6 text-center text-sm text-soft">{t.tierList.noMatch(query)}</p>
         )}
       </div>
     </div>

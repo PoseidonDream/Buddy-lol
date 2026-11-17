@@ -1,6 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useDict } from "@/i18n/client";
 import { itemIcon, runeIcon, spellIcon } from "@/lib/assets";
-import { ordinal } from "@/lib/format";
 import { RUNES, SPELLS } from "@/lib/game-data";
 import { profilePath } from "@/lib/riot-id";
 import type { ItemNames, ParticipantSummary } from "@/lib/types";
@@ -43,6 +45,7 @@ export function ItemRow({
  * remake, where nobody is scored.
  */
 export function ScoreBadge({ player }: { player: ParticipantSummary }) {
+  const t = useDict();
   if (player.scoreRank === 0) return null;
   const tone =
     player.badge === "MVP"
@@ -53,11 +56,11 @@ export function ScoreBadge({ player }: { player: ParticipantSummary }) {
   return (
     <span
       className="inline-flex items-center gap-1.5 font-mono text-xs"
-      title="Buddy score: this game rated from 0 to 10 against everyone else in it"
+      title={t.match.scoreTitle}
     >
       <span className="tabular-nums text-fg">{player.score.toFixed(1)}</span>
       <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${tone}`}>
-        {player.badge ?? ordinal(player.scoreRank)}
+        {player.badge ?? t.match.scoreRank(player.scoreRank)}
       </span>
     </span>
   );

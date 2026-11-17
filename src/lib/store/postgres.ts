@@ -2,15 +2,18 @@ import "server-only";
 
 import { Pool, type PoolClient } from "pg";
 import type { Position, RankedQueue, Tier } from "../types";
-import type {
-  ChampionDetail,
-  MatchDelta,
-  PatchTotal,
-  Feedback,
-  PickKind,
-  PlayerNote,
-  RankSnapshot,
-  Store,
+import {
+  summarizeNotes,
+  type ChampionDetail,
+  type MatchDelta,
+  type MatchupRow,
+  type PatchTotal,
+  type Feedback,
+  type PickKind,
+  type PinnedPlayer,
+  type PlayerNote,
+  type RankSnapshot,
+  type Store,
 } from "./types";
 
 const SCHEMA = `
@@ -59,6 +62,24 @@ create table if not exists player_notes (
   created_at timestamptz not null default now()
 );
 create index if not exists player_notes_puuid on player_notes (puuid);
+alter table player_notes add column if not exists tags text[] not null default '{}';
+alter table player_notes add column if not exists public boolean not null default false;
+create table if not exists pinned_players (
+  puuid text primary key,
+  region text not null,
+  riot_id text not null,
+  pinned_by text not null,
+  pinned_at timestamptz not null default now()
+);
+create table if not exists champion_matchups (
+  patch text not null,
+  champion text not null,
+  position text not null,
+  opponent text not null,
+  games integer not null,
+  wins integer not null,
+  primary key (patch, champion, position, opponent)
+);
 create table if not exists feedback (
   id bigserial primary key,
   body text not null,
@@ -177,9 +198,9 @@ export class PostgresStore implements Store {
   async addNote(n: Omit<PlayerNote, "id">) {
     await this.schema();
     const { rows } = await this.pool.query(
-      `insert into player_notes (puuid, region, riot_id, author, body, created_at)
-       values ($1, $2, $3, $4, $5, to_timestamp($6 / 1000.0)) returning id`,
-      [n.puuid, n.regionSlug, n.riotId, n.author, n.body, n.at],
+      `insert into player_notes (puuid, region, riot_id, author, body, tags, public, created_at)
+       values ($1, $2, $3, $4, $5, $6::text[], $7, to_timestamp($8 / 1000.0)) returning id`,
+      [n.puuid, n.regionSlug, n.riotId, n.author, n.body, n.tags, n.public, n.at],
     );
     return String(rows[0].id);
   }
@@ -187,8 +208,8 @@ export class PostgresStore implements Store {
   async listNotes(puuid: string) {
     await this.schema();
     const { rows } = await this.pool.query(
-      `select id, puuid, region, riot_id, author, body, extract(epoch from created_at) * 1000 as at
-       from player_notes where puuid = $1 order by created_at desc, id desc`,
+      `select id, puuid, region, riot_id, author, body, tags, extract(epoch from created_at) * 1000 as at
+       from player_notes where puuid = $1 and public order by created_at desc, id desc limit 200`,
       [puuid],
     );
     return rows.map(
@@ -199,6 +220,8 @@ export class PostgresStore implements Store {
         riotId: r.riot_id,
         author: r.author,
         body: r.body,
+        tags: r.tags ?? [],
+        public: true,
         at: Math.round(Number(r.at)),
       }),
     );
@@ -211,14 +234,48 @@ export class PostgresStore implements Store {
     return (result.rowCount ?? 0) > 0;
   }
 
-  async noteCounts(puuids: string[]) {
+  async noteSummaries(puuids: string[]) {
     if (puuids.length === 0) return {};
     await this.schema();
     const { rows } = await this.pool.query(
-      "select puuid, count(*)::int as n from player_notes where puuid = any($1::text[]) group by puuid",
+      "select puuid, tags from player_notes where puuid = any($1::text[]) and public order by created_at, id",
       [puuids],
     );
-    return Object.fromEntries(rows.map((r) => [r.puuid as string, r.n as number]));
+    return summarizeNotes(rows.map((r) => ({ puuid: r.puuid as string, tags: (r.tags ?? []) as string[] })));
+  }
+
+  async pinPlayer(p: PinnedPlayer) {
+    await this.schema();
+    await this.pool.query(
+      `insert into pinned_players (puuid, region, riot_id, pinned_by, pinned_at)
+       values ($1, $2, $3, $4, to_timestamp($5 / 1000.0))
+       on conflict (puuid) do update
+       set region = excluded.region, riot_id = excluded.riot_id, pinned_by = excluded.pinned_by`,
+      [p.puuid, p.regionSlug, p.riotId, p.pinnedBy, p.at],
+    );
+  }
+
+  async unpinPlayer(puuid: string) {
+    await this.schema();
+    const result = await this.pool.query("delete from pinned_players where puuid = $1", [puuid]);
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async listPinned() {
+    await this.schema();
+    const { rows } = await this.pool.query(
+      `select puuid, region, riot_id, pinned_by, extract(epoch from pinned_at) * 1000 as at
+       from pinned_players order by pinned_at, puuid`,
+    );
+    return rows.map(
+      (r): PinnedPlayer => ({
+        puuid: r.puuid,
+        regionSlug: r.region,
+        riotId: r.riot_id,
+        pinnedBy: r.pinned_by,
+        at: Math.round(Number(r.at)),
+      }),
+    );
   }
 
   async addFeedback(f: Omit<Feedback, "id">) {
@@ -373,6 +430,22 @@ export class PostgresStore implements Store {
         ],
       );
     }
+    if (d.matchups?.length) {
+      await client.query(
+        `insert into champion_matchups (patch, champion, position, opponent, games, wins)
+         select $1, c, p, o, 1, w::int
+         from unnest($2::text[], $3::text[], $4::text[], $5::boolean[]) as t(c, p, o, w)
+         on conflict (patch, champion, position, opponent) do update
+         set games = champion_matchups.games + 1, wins = champion_matchups.wins + excluded.wins`,
+        [
+          d.patch,
+          d.matchups.map((m) => m.champion),
+          d.matchups.map((m) => m.position),
+          d.matchups.map((m) => m.opponent),
+          d.matchups.map((m) => m.win),
+        ],
+      );
+    }
   }
 
   async seenMatches(ids: string[]) {
@@ -430,6 +503,16 @@ export class PostgresStore implements Store {
       bans: bans.rows[0]?.bans ?? 0,
       picks: picks.rows.map((r) => ({ ...r, kind: r.kind as PickKind })),
     };
+  }
+
+  async championMatchups(patch: string, champion: string): Promise<MatchupRow[]> {
+    await this.schema();
+    const { rows } = await this.pool.query(
+      `select position, opponent, games, wins from champion_matchups
+       where patch = $1 and champion = $2`,
+      [patch, champion],
+    );
+    return rows.map((r) => ({ ...r, position: r.position as Position }));
   }
 
   async close() {

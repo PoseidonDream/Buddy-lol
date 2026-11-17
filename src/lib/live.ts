@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { Locale } from "@/i18n/config";
+
 import { demoLiveGame } from "./demo/generate";
 import { getStaticData } from "./ddragon";
 import { getRegion, type Region } from "./regions";
@@ -15,6 +17,7 @@ import type { LiveGame, LivePlayer, Profile } from "./types";
  */
 export async function getLiveGame(
   profile: Pick<Profile, "source" | "regionSlug" | "puuid" | "gameName" | "tagLine">,
+  locale: Locale = "en",
 ): Promise<LiveGame | null> {
   const region = getRegion(profile.regionSlug);
   if (!region) return null;
@@ -26,7 +29,7 @@ export async function getLiveGame(
   try {
     const [game, staticData] = await Promise.all([
       getActiveGame(region, profile.puuid),
-      getStaticData(),
+      getStaticData(locale),
     ]);
     if (!game) return null;
     const live = mapLiveGame(game, staticData.champion);

@@ -1,6 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useDict } from "@/i18n/client";
 import { formatNumber, percent } from "@/lib/format";
-import { RANKED_QUEUE_NAMES, tierName } from "@/lib/game-data";
 import { ladderHref } from "@/lib/ladder-url";
 import { REGIONS, getRegion } from "@/lib/regions";
 import { profilePath } from "@/lib/riot-id";
@@ -25,10 +27,11 @@ export function LadderControls({
   tier: ApexTier;
   queue: RankedQueue;
 }) {
+  const t = useDict();
   return (
     <div className="space-y-3">
       <nav
-        aria-label="Region"
+        aria-label={t.search.region}
         className="flex gap-1 overflow-x-auto rounded-xl border border-edge bg-panel p-1"
       >
         {REGIONS.map((r) => (
@@ -36,7 +39,7 @@ export function LadderControls({
             key={r.slug}
             href={ladderHref(r.slug, { tier, queue })}
             aria-current={r.slug === regionSlug ? "page" : undefined}
-            title={r.name}
+            title={t.game.regionName(r.slug)}
             className={`${pill(r.slug === regionSlug)} font-mono text-xs`}
           >
             {r.label}
@@ -45,19 +48,19 @@ export function LadderControls({
       </nav>
 
       <div className="flex flex-wrap gap-3">
-        <nav aria-label="Tier" className="flex gap-1 rounded-xl border border-edge bg-panel p-1">
-          {TIERS.map((t) => (
+        <nav aria-label={t.ladder.tier} className="flex gap-1 rounded-xl border border-edge bg-panel p-1">
+          {TIERS.map((apex) => (
             <Link
-              key={t}
-              href={ladderHref(regionSlug, { tier: t, queue })}
-              aria-current={t === tier ? "page" : undefined}
-              className={pill(t === tier)}
+              key={apex}
+              href={ladderHref(regionSlug, { tier: apex, queue })}
+              aria-current={apex === tier ? "page" : undefined}
+              className={pill(apex === tier)}
             >
-              {tierName(t.toUpperCase() as Tier)}
+              {t.game.tier(apex.toUpperCase() as Tier)}
             </Link>
           ))}
         </nav>
-        <nav aria-label="Queue" className="flex gap-1 rounded-xl border border-edge bg-panel p-1">
+        <nav aria-label={t.ladder.queue} className="flex gap-1 rounded-xl border border-edge bg-panel p-1">
           {QUEUES.map((q) => (
             <Link
               key={q}
@@ -65,7 +68,7 @@ export function LadderControls({
               aria-current={q === queue ? "page" : undefined}
               className={pill(q === queue)}
             >
-              {q === "RANKED_SOLO_5x5" ? "Solo/Duo" : "Flex"}
+              {q === "RANKED_SOLO_5x5" ? t.lp.solo : t.lp.flex}
             </Link>
           ))}
         </nav>
@@ -75,8 +78,9 @@ export function LadderControls({
 }
 
 function Player({ entry, regionSlug }: { entry: LadderEntry; regionSlug: string }) {
+  const t = useDict();
   if (!entry.gameName || !entry.tagLine) {
-    return <span className="text-faint">Name unavailable</span>;
+    return <span className="text-faint">{t.ladder.noName}</span>;
   }
   return (
     <Link
@@ -91,6 +95,7 @@ function Player({ entry, regionSlug }: { entry: LadderEntry; regionSlug: string 
 }
 
 export function LadderTable({ ladder }: { ladder: LadderPage }) {
+  const t = useDict();
   const { entries, regionSlug, tier, queue, page, pageSize, total } = ladder;
   const region = getRegion(regionSlug);
   const lastPage = Math.max(1, Math.ceil(total / pageSize));
@@ -99,23 +104,22 @@ export function LadderTable({ ladder }: { ladder: LadderPage }) {
   if (total === 0) {
     return (
       <p className="card p-8 text-center text-soft">
-        Nobody is in {tierName(tier.toUpperCase() as Tier)} on {region?.label} for this queue
-        right now. That is normal at the start of a season.
+        {t.ladder.empty(t.game.tier(tier.toUpperCase() as Tier), region?.label ?? regionSlug)}
       </p>
     );
   }
 
   return (
-    <section aria-label="Ladder">
+    <section aria-label={t.ladder.label}>
       <div className="card overflow-hidden">
         <div className="flex items-center gap-4 border-b border-edge p-4">
           <TierEmblem tier={tier.toUpperCase() as Tier} size={44} />
           <div>
             <h2 className="font-semibold">
-              {tierName(tier.toUpperCase() as Tier)} · {RANKED_QUEUE_NAMES[queue]}
+              {t.game.tier(tier.toUpperCase() as Tier)} · {t.game.rankedQueue(queue)}
             </h2>
             <p className="font-mono text-xs text-faint">
-              {formatNumber(total)} players on {region?.name}
+              {t.ladder.players(formatNumber(total), region ? t.game.regionName(region.slug) : regionSlug)}
             </p>
           </div>
         </div>
@@ -125,13 +129,13 @@ export function LadderTable({ ladder }: { ladder: LadderPage }) {
           <thead>
             <tr className="label-caps">
               <th scope="col" className="w-12 py-2 pl-4 font-normal sm:w-16">#</th>
-              <th scope="col" className="py-2 font-normal">Player</th>
+              <th scope="col" className="py-2 font-normal">{t.scoreboard.player}</th>
               <th scope="col" className="w-16 py-2 pr-4 text-right font-normal sm:w-24">LP</th>
               <th scope="col" className="w-16 py-2 pr-4 font-normal max-sm:text-right sm:w-40">
-                <span className="max-sm:hidden">Win rate</span>
-                <span className="sm:hidden">Win</span>
+                <span className="max-sm:hidden">{t.game.winRate}</span>
+                <span className="sm:hidden">{t.ladder.winShort}</span>
               </th>
-              <th scope="col" className="w-28 py-2 pr-4 text-right font-normal max-sm:hidden">Games</th>
+              <th scope="col" className="w-28 py-2 pr-4 text-right font-normal max-sm:hidden">{t.ladder.games}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-edge border-t border-edge">
@@ -151,7 +155,7 @@ export function LadderTable({ ladder }: { ladder: LadderPage }) {
                     <Player entry={entry} regionSlug={regionSlug} />
                     {entry.hotStreak && (
                       <span className="ml-2 rounded-full bg-gold/15 px-2 py-0.5 text-[10px] font-medium text-gold max-sm:hidden">
-                        Hot streak
+                        {t.ladder.hotStreak}
                       </span>
                     )}
                   </td>
@@ -167,7 +171,7 @@ export function LadderTable({ ladder }: { ladder: LadderPage }) {
                     </div>
                   </td>
                   <td className="py-2.5 pr-4 text-right font-mono text-xs tabular-nums text-faint max-sm:hidden">
-                    {entry.wins}W {entry.losses}L
+                    {t.game.record(entry.wins, entry.losses)}
                   </td>
                 </tr>
               );
@@ -176,15 +180,15 @@ export function LadderTable({ ladder }: { ladder: LadderPage }) {
         </table>
       </div>
 
-      <nav aria-label="Pages" className="mt-4 flex items-center justify-between gap-4 text-sm">
+      <nav aria-label={t.ladder.pages} className="mt-4 flex items-center justify-between gap-4 text-sm">
         <PageLink href={ladderHref(regionSlug, { tier, queue, page: page - 1 })} enabled={page > 1}>
-          Previous
+          {t.ladder.previous}
         </PageLink>
         <p className="font-mono text-xs text-faint">
-          {from + 1}–{from + entries.length} of {formatNumber(total)}
+          {t.ladder.range(from + 1, from + entries.length, formatNumber(total))}
         </p>
         <PageLink href={ladderHref(regionSlug, { tier, queue, page: page + 1 })} enabled={page < lastPage}>
-          Next
+          {t.ladder.next}
         </PageLink>
       </nav>
     </section>
@@ -213,8 +217,9 @@ function PageLink({
 }
 
 export function LadderSkeleton() {
+  const t = useDict();
   return (
-    <div className="space-y-3" role="status" aria-label="Loading ladder">
+    <div className="space-y-3" role="status" aria-label={t.ladder.loading}>
       <div className="h-11 animate-pulse rounded-xl bg-raised" />
       <div className="h-11 w-80 max-w-full animate-pulse rounded-xl bg-raised" />
       <div className="h-[36rem] animate-pulse rounded-xl bg-raised" />

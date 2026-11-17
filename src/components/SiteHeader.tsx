@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useDict } from "@/i18n/client";
 import { NavLinks } from "./NavLinks";
 import { SearchBar } from "./SearchBar";
 
@@ -11,11 +14,12 @@ export function Wordmark({ className = "" }: { className?: string }) {
 }
 
 export function SiteHeader({ showSearch = false }: { showSearch?: boolean }) {
+  const t = useDict();
   return (
     <header className="border-b border-edge bg-ink/90 backdrop-blur sm:sticky sm:top-0 sm:z-20">
       <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:h-16 sm:flex-row sm:items-center sm:gap-6 sm:py-0">
         <div className="flex items-center justify-between gap-4 sm:justify-start">
-          <Link href="/" className="rounded text-xl" aria-label="Buddy.lol home">
+          <Link href="/" className="rounded text-xl" aria-label={t.nav.home}>
             <Wordmark />
           </Link>
           <NavLinks />

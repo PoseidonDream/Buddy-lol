@@ -1,5 +1,6 @@
 "use client";
 
+import { useDict } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { profileIcon } from "@/lib/assets";
@@ -11,6 +12,7 @@ import { useNow } from "@/lib/use-now";
 import { GameIcon } from "../GameIcon";
 
 export function ProfileHeader({ profile }: { profile: Profile }) {
+  const t = useDict();
   const router = useRouter();
   const [refreshing, startTransition] = useTransition();
   const region = getRegion(profile.regionSlug);
@@ -42,7 +44,7 @@ export function ProfileHeader({ profile }: { profile: Profile }) {
         </div>
 
         <div className="min-w-40 flex-1">
-          <p className="label-caps mb-1">{region?.name ?? profile.regionSlug}</p>
+          <p className="label-caps mb-1">{region ? t.game.regionName(region.slug) : profile.regionSlug}</p>
           <h1 className="text-2xl font-semibold tracking-tight wrap-anywhere sm:text-3xl">
             {profile.gameName}
             <span className="font-normal text-faint"> #{profile.tagLine}</span>
@@ -51,7 +53,7 @@ export function ProfileHeader({ profile }: { profile: Profile }) {
 
         <div className="flex items-center gap-3 max-sm:w-full max-sm:justify-between">
           <span className="text-xs text-faint">
-            Updated {timeAgo(profile.generatedAt, now)}
+            {t.profile.updated(timeAgo(profile.generatedAt, now, t.time))}
           </span>
           <button
             type="button"
@@ -59,7 +61,7 @@ export function ProfileHeader({ profile }: { profile: Profile }) {
             disabled={refreshing}
             className="rounded-lg border border-edge bg-raised px-4 py-2 text-sm font-medium transition-colors hover:border-faint disabled:opacity-60"
           >
-            {refreshing ? "Updating…" : "Update"}
+            {refreshing ? t.profile.updating : t.profile.update}
           </button>
         </div>
       </div>

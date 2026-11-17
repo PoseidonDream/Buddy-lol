@@ -136,3 +136,34 @@ export interface MatchDto {
     teams?: TeamDto[];
   };
 }
+
+/** match-v5 timeline: a frame a minute, each with the events since the last. */
+export interface TimelineDto {
+  metadata?: { participants?: string[] };
+  info: {
+    frameInterval?: number;
+    participants?: { participantId: number; puuid: string }[];
+    frames: {
+      timestamp: number;
+      participantFrames?: Record<string, { participantId?: number; totalGold?: number } | undefined>;
+      events?: TimelineEventDto[];
+    }[];
+  };
+}
+
+export interface TimelineEventDto {
+  type: string;
+  timestamp: number;
+  participantId?: number;
+  itemId?: number;
+  beforeId?: number;
+  afterId?: number;
+  skillSlot?: number;
+  levelUpType?: string;
+  killerId?: number;
+  killerTeamId?: number;
+  monsterType?: string;
+  buildingType?: string;
+  /** For buildings: the team that lost it. */
+  teamId?: number;
+}

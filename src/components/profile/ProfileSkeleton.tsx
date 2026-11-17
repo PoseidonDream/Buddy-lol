@@ -1,10 +1,15 @@
+"use client";
+
+import { useDict } from "@/i18n/client";
+
 function Bar({ className }: { className: string }) {
   return <div className={`animate-pulse rounded-lg bg-raised ${className}`} />;
 }
 
 export function ProfileSkeleton() {
+  const t = useDict();
   return (
-    <div className="space-y-6" role="status" aria-label="Loading profile">
+    <div className="space-y-6" role="status" aria-label={t.profileView.loading}>
       <div className="card flex items-center gap-5 p-5 sm:p-6">
         <Bar className="size-20 rounded-2xl sm:size-24" />
         <div className="space-y-2">

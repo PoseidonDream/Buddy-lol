@@ -1,28 +1,35 @@
 "use client";
 
+import Link from "next/link";
+import { useDict } from "@/i18n/client";
+import type { Dict } from "@/i18n/dictionaries";
 import { championIcon } from "@/lib/assets";
 import { formatCompact, initials, percent } from "@/lib/format";
-import { APEX_TIERS, queueName, tierName } from "@/lib/game-data";
+import { APEX_TIERS } from "@/lib/game-data";
 import { rankFromValue, rankValue } from "@/lib/rank-scale";
+import type { NoteSummary } from "@/lib/store/types";
 import type { LiveGame, LivePlayer, LiveTeam, RankedEntry } from "@/lib/types";
+import { profilePath } from "@/lib/riot-id";
 import { useNow } from "@/lib/use-now";
 import { GameIcon } from "../GameIcon";
+import { TagChip } from "../notes/TagChip";
 import { TierEmblem } from "../TierEmblem";
 import { Loadout, PlayerLink } from "./MatchParts";
 
-function rankLabel(r: Pick<RankedEntry, "tier" | "division">): string {
-  return `${tierName(r.tier)}${APEX_TIERS.has(r.tier) ? "" : ` ${r.division}`}`;
+function rankLabel(r: Pick<RankedEntry, "tier" | "division">, t: Dict): string {
+  return `${t.game.tier(r.tier)}${APEX_TIERS.has(r.tier) ? "" : ` ${r.division}`}`;
 }
 
 /** The team's average rank among players who have one, e.g. "Gold II". */
-function averageRank(team: LiveTeam): string | null {
+function averageRank(team: LiveTeam, t: Dict): string | null {
   const values = team.players.flatMap((p) => (p.rank ? [rankValue(p.rank.tier, p.rank.division, p.rank.lp)] : []));
   if (values.length === 0) return null;
   const avg = rankFromValue(values.reduce((a, b) => a + b, 0) / values.length);
-  return rankLabel(avg);
+  return rankLabel(avg, t);
 }
 
 function WinRate({ rank }: { rank: RankedEntry }) {
+  const t = useDict();
   const games = rank.wins + rank.losses;
   const rate = percent(rank.wins, games);
   const tone = games >= 20 && rate >= 55 ? "text-win" : games >= 20 && rate <= 45 ? "text-loss" : "";
@@ -30,7 +37,7 @@ function WinRate({ rank }: { rank: RankedEntry }) {
     <div className="leading-tight">
       <p className={`font-mono text-sm font-semibold tabular-nums ${tone}`}>{rate}%</p>
       <p className="font-mono text-[11px] tabular-nums text-faint">
-        {rank.wins}W {rank.losses}L
+        {t.game.record(rank.wins, rank.losses)}
       </p>
       <div className="mt-1 h-1 w-16 overflow-hidden rounded-full bg-loss/60" aria-hidden="true">
         <div className="h-full bg-win" style={{ width: `${rate}%` }} />
@@ -50,8 +57,9 @@ function PlayerRow({
   focused: boolean;
   regionSlug: string;
   assetVersion: string;
-  notes: number;
+  notes: NoteSummary | undefined;
 }) {
+  const t = useDict();
   const { rank, mastery } = player;
   return (
     <tr className={focused ? "bg-white/[0.06]" : undefined}>
@@ -72,12 +80,24 @@ function PlayerRow({
             />
             <p className="truncate text-[11px] text-faint">
               {player.championName}
-              {notes > 0 && (
-                <span className="ml-1.5 rounded bg-gold/15 px-1 text-gold" title="You have notes on this player">
-                  {notes} {notes === 1 ? "note" : "notes"}
-                </span>
+              {notes && player.tagLine && (
+                <Link
+                  href={`${profilePath(regionSlug, player)}#comments`}
+                  prefetch={false}
+                  className="ml-1.5 rounded bg-gold/15 px-1 text-gold hover:underline"
+                  title={t.live.notesTitle}
+                >
+                  {t.live.notes(notes.count)}
+                </Link>
               )}
             </p>
+            {notes && notes.tags.length > 0 && (
+              <div className="mt-0.5 flex max-w-48 flex-wrap gap-0.5">
+                {notes.tags.slice(0, 3).map((tag) => (
+                  <TagChip key={tag} tag={tag} className="px-1! py-0! text-[10px]!" />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </td>
@@ -86,16 +106,16 @@ function PlayerRow({
           <div className="flex items-center gap-2">
             <TierEmblem tier={rank.tier} size={26} />
             <div className="leading-tight">
-              <p className="whitespace-nowrap text-sm">{rankLabel(rank)}</p>
+              <p className="whitespace-nowrap text-sm">{rankLabel(rank, t)}</p>
               <p className="font-mono text-[11px] tabular-nums text-faint">
-                {rank.lp} LP{rank.queue === "RANKED_FLEX_SR" ? " · flex" : ""}
+                {rank.lp} LP{rank.queue === "RANKED_FLEX_SR" ? ` · ${t.pinned.flex}` : ""}
                 {/* The win rate column is hidden on phones; keep the number here. */}
                 <span className="sm:hidden"> · {percent(rank.wins, rank.wins + rank.losses)}%</span>
               </p>
             </div>
           </div>
         ) : (
-          <span className="text-sm text-faint">{player.puuid ? "Unranked" : "–"}</span>
+          <span className="text-sm text-faint">{player.puuid ? t.rank.unranked : "–"}</span>
         )}
       </td>
       <td className="py-1.5 pr-3 max-sm:hidden">{rank ? <WinRate rank={rank} /> : null}</td>
@@ -103,10 +123,10 @@ function PlayerRow({
         {mastery ? (
           <div className="leading-tight">
             <p className="font-mono text-sm tabular-nums">{formatCompact(mastery.points)}</p>
-            <p className="font-mono text-[11px] text-faint">level {mastery.level}</p>
+            <p className="font-mono text-[11px] text-faint">{t.live.masteryLevel(mastery.level)}</p>
           </div>
         ) : (
-          <span className="text-sm text-faint" title="No mastery on this champion">
+          <span className="text-sm text-faint" title={t.live.noMastery}>
             –
           </span>
         )}
@@ -120,26 +140,27 @@ function Team({
   focusPuuid,
   regionSlug,
   assetVersion,
-  noteCounts,
+  notes,
 }: {
   team: LiveTeam;
   focusPuuid: string;
   regionSlug: string;
   assetVersion: string;
-  noteCounts: Record<string, number>;
+  notes: Record<string, NoteSummary>;
 }) {
+  const t = useDict();
   const blue = team.id === 100;
-  const average = averageRank(team);
+  const average = averageRank(team, t);
   return (
     <div className={`rounded-xl border p-3 ${blue ? "border-win/30 bg-win-wash" : "border-loss/30 bg-loss-wash"}`}>
       <div className="mb-2 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1">
         <h3 className={`text-sm font-semibold ${blue ? "text-win" : "text-loss"}`}>
-          {blue ? "Blue side" : "Red side"}
-          {average && <span className="ml-2 font-normal text-soft">avg {average}</span>}
+          {blue ? t.game.blueSide : t.game.redSide}
+          {average && <span className="ml-2 font-normal text-soft">{t.live.average(average)}</span>}
         </h3>
         {team.bans.length > 0 && (
           <div className="flex items-center gap-1.5">
-            <span className="label-caps">Bans</span>
+            <span className="label-caps">{t.live.bans}</span>
             <ul className="flex gap-1">
               {team.bans.map((ban) => (
                 <li key={ban.championKey}>
@@ -158,10 +179,10 @@ function Team({
       <table className="w-full border-separate border-spacing-y-0.5 text-left">
         <thead className="sr-only">
           <tr>
-            <th scope="col">Player</th>
-            <th scope="col">Rank</th>
-            <th scope="col">Win rate this season</th>
-            <th scope="col">Mastery on this champion</th>
+            <th scope="col">{t.scoreboard.player}</th>
+            <th scope="col">{t.live.rank}</th>
+            <th scope="col">{t.live.winRate}</th>
+            <th scope="col">{t.live.mastery}</th>
           </tr>
         </thead>
         <tbody>
@@ -172,7 +193,7 @@ function Team({
               focused={p.puuid !== null && p.puuid === focusPuuid}
               regionSlug={regionSlug}
               assetVersion={assetVersion}
-              notes={p.puuid ? (noteCounts[p.puuid] ?? 0) : 0}
+              notes={p.puuid ? notes[p.puuid] : undefined}
             />
           ))}
         </tbody>
@@ -187,7 +208,7 @@ export function LiveGameCard({
   regionSlug,
   assetVersion,
   fetchedAt,
-  noteCounts = {},
+  notes = {},
 }: {
   game: LiveGame;
   /** The player whose profile this is, highlighted in the list. */
@@ -196,28 +217,28 @@ export function LiveGameCard({
   assetVersion: string;
   fetchedAt: number;
   /** Notes per player, shown to people who have unlocked notes. */
-  noteCounts?: Record<string, number>;
+  notes?: Record<string, NoteSummary>;
 }) {
+  const t = useDict();
   const now = useNow(fetchedAt);
   const minutes = game.startedAt === null ? null : Math.max(0, Math.floor((now - game.startedAt) / 60_000));
 
   return (
-    <section className="card p-4 sm:p-5" aria-label="Live game">
+    <section className="card p-4 sm:p-5" aria-label={t.live.label}>
       <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-1">
         <span className="inline-flex items-center gap-2 rounded-full bg-loss/15 px-2.5 py-1 text-xs font-semibold text-loss">
           <span className="relative flex size-2">
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-loss opacity-60 motion-reduce:hidden" />
             <span className="relative inline-flex size-2 rounded-full bg-loss" />
           </span>
-          Live
+          {t.live.badge}
         </span>
-        <h2 className="font-medium">In a game now</h2>
+        <h2 className="font-medium">{t.live.heading}</h2>
         <p className="font-mono text-xs text-faint">
-          {queueName(game.queueId, game.gameMode)} ·{" "}
-          {minutes === null ? "loading in" : `${minutes} min in`}
+          {t.game.queue(game.queueId, game.gameMode)} · {minutes === null ? t.live.loadingIn : t.live.minutesIn(minutes)}
         </p>
         <p className="ml-auto text-[11px] text-faint max-md:hidden">
-          Rank and win rate this season · mastery on the champion played
+          {t.live.columns}
         </p>
       </div>
 
@@ -229,7 +250,7 @@ export function LiveGameCard({
             focusPuuid={focusPuuid}
             regionSlug={regionSlug}
             assetVersion={assetVersion}
-            noteCounts={noteCounts}
+            notes={notes}
           />
         ))}
       </div>

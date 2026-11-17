@@ -1,7 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useDict } from "@/i18n/client";
 import { championIcon, profileIcon } from "@/lib/assets";
-import { formatKda, initials, kdaRatio, percent } from "@/lib/format";
-import { APEX_TIERS, POSITION_NAMES, tierName } from "@/lib/game-data";
+import { initials, kdaRatio, percent } from "@/lib/format";
+import { APEX_TIERS } from "@/lib/game-data";
 import { profilePath, type RiotId } from "@/lib/riot-id";
 import { outcomeOf, summarize, type Outcome } from "@/lib/stats";
 import type { Profile, ProfileError } from "@/lib/types";
@@ -16,6 +19,7 @@ function Shell({ children }: { children: React.ReactNode }) {
 }
 
 export function PlayerCard({ profile }: { profile: Profile }) {
+  const t = useDict();
   const solo = profile.ranked.find((r) => r.queue === "RANKED_SOLO_5x5");
   const summary = summarize(profile.matches);
   const ratio = kdaRatio(summary.kills, summary.deaths, summary.assists);
@@ -35,7 +39,7 @@ export function PlayerCard({ profile }: { profile: Profile }) {
             {profile.gameName}
           </Link>
           <p className="truncate font-mono text-xs text-faint">
-            #{profile.tagLine} · lvl {profile.level}
+            #{profile.tagLine} · {t.multi.level(profile.level)}
           </p>
         </div>
       </div>
@@ -45,47 +49,46 @@ export function PlayerCard({ profile }: { profile: Profile }) {
         {solo ? (
           <div className="leading-tight">
             <p className="font-medium">
-              {tierName(solo.tier)}
+              {t.game.tier(solo.tier)}
               {APEX_TIERS.has(solo.tier) ? "" : ` ${solo.division}`}
             </p>
             <p className="font-mono text-xs text-soft">
-              {solo.lp} LP · {percent(solo.wins, solo.wins + solo.losses)}% of{" "}
-              {solo.wins + solo.losses}
+              {solo.lp} LP · {t.multi.rateOf(percent(solo.wins, solo.wins + solo.losses), solo.wins + solo.losses)}
             </p>
           </div>
         ) : (
-          <p className="text-sm text-soft">Unranked in solo queue</p>
+          <p className="text-sm text-soft">{t.multi.unrankedSolo}</p>
         )}
       </div>
 
       <div className="mt-4 border-t border-edge pt-4">
-        <p className="label-caps">Last {profile.matches.length} games</p>
+        <p className="label-caps">{t.summary.lastGames(profile.matches.length)}</p>
         {summary.games > 0 ? (
           <>
             <div className="mt-2 flex items-center justify-between gap-2">
-              <ol className="flex gap-1" aria-label="Results, most recent first">
+              <ol className="flex gap-1" aria-label={t.summary.form}>
                 {profile.matches.map((m) => {
                   const outcome = outcomeOf(m);
                   return (
-                    <li key={m.id} title={outcome} className={`size-3 rounded-[3px] ${FORM_TILE[outcome]}`}>
-                      <span className="sr-only">{outcome}</span>
+                    <li key={m.id} title={t.summary.outcome[outcome]} className={`size-3 rounded-[3px] ${FORM_TILE[outcome]}`}>
+                      <span className="sr-only">{t.summary.outcome[outcome]}</span>
                     </li>
                   );
                 })}
               </ol>
               <span className="font-mono text-xs">
-                <span className={kdaTone(ratio)}>{formatKda(ratio)}</span>
+                <span className={kdaTone(ratio)}>{t.game.kda(ratio)}</span>
                 <span className="text-faint"> KDA</span>
               </span>
             </div>
             {mainRole.games > 0 && (
               <p className="mt-2 text-xs text-soft">
-                Mostly {POSITION_NAMES[mainRole.position]} ({mainRole.games} of {summary.games})
+                {t.multi.mostly(t.game.position(mainRole.position), mainRole.games, summary.games)}
               </p>
             )}
           </>
         ) : (
-          <p className="mt-2 text-sm text-soft">No recent games.</p>
+          <p className="mt-2 text-sm text-soft">{t.multi.noGames}</p>
         )}
       </div>
 
@@ -106,7 +109,7 @@ export function PlayerCard({ profile }: { profile: Profile }) {
                   {c.wins}-{c.games - c.wins}
                 </span>
                 <span className={`w-10 text-right font-mono text-xs ${kdaTone(champRatio)}`}>
-                  {formatKda(champRatio)}
+                  {t.game.kda(champRatio)}
                 </span>
               </li>
             );
@@ -118,7 +121,7 @@ export function PlayerCard({ profile }: { profile: Profile }) {
         href={href}
         className="mt-auto block pt-4 text-center text-sm text-accent hover:underline"
       >
-        Full profile
+        {t.multi.fullProfile}
       </Link>
     </Shell>
   );

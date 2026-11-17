@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useDict } from "@/i18n/client";
 import { useEffect, useId, useMemo } from "react";
 import { getRegion } from "@/lib/regions";
 import { profilePath } from "@/lib/riot-id";
@@ -32,6 +33,7 @@ export function PlayerChip({ region, gameName, tagLine }: RecentSearch) {
 }
 
 export function RecentSearches() {
+  const t = useDict();
   const headingId = useId();
   const raw = useRecentRaw();
   const recent = useMemo(() => parseRecent(raw), [raw]);
@@ -41,14 +43,14 @@ export function RecentSearches() {
     <section aria-labelledby={headingId}>
       <div className="mb-3 flex items-center justify-between">
         <h2 id={headingId} className="label-caps">
-          Recently viewed
+          {t.home.recent}
         </h2>
         <button
           type="button"
           onClick={clearRecent}
           className="rounded text-xs text-faint hover:text-fg"
         >
-          Clear
+          {t.home.clear}
         </button>
       </div>
       <ul className="flex flex-wrap gap-2">

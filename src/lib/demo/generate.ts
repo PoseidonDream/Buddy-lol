@@ -19,6 +19,7 @@ import type {
   MasteryEntry,
   MatchPage,
   MatchSummary,
+  MatchTimeline,
   ParticipantSummary,
   Position,
   Profile,
@@ -103,8 +104,16 @@ function championsFor(position: Position): Champ[] {
   return CHAMPION_POOL.filter((c) => c.position === position);
 }
 
+function personaSeed(regionSlug: string, gameName: string, tagLine: string): string {
+  return `${regionSlug}:${gameName.toLowerCase()}#${tagLine.toLowerCase()}`;
+}
+
+function personaPuuid(regionSlug: string, gameName: string, tagLine: string): string {
+  return `demo-${hashString(personaSeed(regionSlug, gameName, tagLine)).toString(16)}`;
+}
+
 function persona(regionSlug: string, gameName: string, tagLine: string, defaultTag: string): Persona {
-  const seed = `${regionSlug}:${gameName.toLowerCase()}#${tagLine.toLowerCase()}`;
+  const seed = personaSeed(regionSlug, gameName, tagLine);
   const rng = new Rng(seed);
   const [mainRole, offRole] = rng.shuffle(POSITIONS);
   const pool = [
@@ -114,7 +123,7 @@ function persona(regionSlug: string, gameName: string, tagLine: string, defaultT
   return {
     seed,
     regionSlug,
-    puuid: `demo-${hashString(seed).toString(16)}`,
+    puuid: personaPuuid(regionSlug, gameName, tagLine),
     gameName,
     tagLine,
     defaultTag,
@@ -260,13 +269,11 @@ function lobby(rng: Rng, me: Persona, aram: boolean): { mySide: number; seats: [
     const champ = rng.pick(options);
     used.add(champ.key);
     const gameName = names[n];
-    return {
-      champ,
-      role: aram ? null : role,
-      gameName,
-      tagLine: rng.chance(0.6) ? me.defaultTag : String(rng.int(1000, 9999)),
-      puuid: `demo-${hashString(gameName).toString(16)}`,
-    };
+    // Each name keeps one tag, and the same id its own profile has, so the
+    // same sample player is recognised from game to game.
+    const h = hashString(gameName);
+    const tagLine = h % 10 < 6 ? me.defaultTag : String(1000 + (h % 9000));
+    return { champ, role: aram ? null : role, gameName, tagLine, puuid: personaPuuid(me.regionSlug, gameName, tagLine) };
   };
 
   const side = (teamId: number, t: number) => POSITIONS.map((role, i) => seatFor(teamId, role, t * 5 + i));
@@ -526,4 +533,87 @@ export function demoLiveGame(
       bans: bannable.slice(t * 5, t * 5 + 5).map((c) => ({ championKey: c.key, championName: c.name })),
     })),
   };
+}
+
+// ---------------------------------------------------------------- timeline
+
+const STARTING_ITEMS: Record<Position, number[][]> = {
+  TOP: [[1055, 2003], [1054, 2003], [1056, 2003]],
+  JUNGLE: [[1101, 2003], [1102, 2003], [1103, 2003]],
+  MIDDLE: [[1056, 2003, 2003], [1055, 2003]],
+  BOTTOM: [[1055, 2003]],
+  UTILITY: [[3865, 2003]],
+};
+
+/** A sample game's timeline, consistent with its scoreboard. `null` for ids that aren't this player's. */
+export function demoTimeline(
+  region: { slug: string; defaultTag: string },
+  gameName: string,
+  tagLine: string,
+  matchId: string,
+  now: number,
+): MatchTimeline | null {
+  const me = persona(region.slug, gameName, tagLine, region.defaultTag);
+  const prefix = `DEMO_${hashString(me.seed).toString(36)}_`;
+  if (!matchId.startsWith(prefix)) return null;
+  const index = Number(matchId.slice(prefix.length));
+  if (!Number.isInteger(index) || index < 0 || index >= TOTAL_MATCHES) return null;
+  const anchor = Math.floor(now / DAY_MS) * DAY_MS - 20 * 60_000;
+  return timelineOf(buildMatch(me, index, anchor));
+}
+
+function timelineOf(match: MatchSummary): MatchTimeline {
+  const rng = new Rng(`${match.id}:timeline`);
+  const duration = match.durationSec;
+  const minutes = Math.ceil(duration / 60);
+
+  const players = match.teams.flatMap((t) => t.participants).map((p) => {
+    // Everyone ends on their scoreboard gold; winners pull ahead late, losers early.
+    const bend = p.win ? 1.08 : 0.94;
+    const gold: number[] = [];
+    for (let m = 0; m <= minutes; m++) {
+      const t = Math.min(1, (m * 60) / duration);
+      const value = 500 + (p.gold - 500) * Math.pow(t, bend) * (m === minutes ? 1 : rng.range(0.96, 1.04));
+      gold.push(Math.min(p.gold, Math.max(gold.at(-1) ?? 500, Math.round(value))));
+    }
+    gold[minutes] = p.gold;
+
+    const start = rng.pick(STARTING_ITEMS[p.position ?? "MIDDLE"]).map((itemId) => ({ at: 0, itemId }));
+    const build = p.items.slice(0, 6).filter((id) => id > 0);
+    const purchases = [
+      ...start,
+      { at: 1, itemId: 3340 },
+      ...build.map((itemId, i) => ({
+        itemId,
+        at: Math.round(duration * (0.12 + (0.8 * (i + 1)) / (build.length + 1)) + rng.int(-40, 40)),
+      })),
+    ].sort((a, b) => a.at - b.at);
+
+    // R at 6, 11 and 16; the other three maxed in a fixed order.
+    const order = rng.shuffle([1, 2, 3]);
+    const counts = [0, 0, 0, 0, 0];
+    const skills: number[] = [];
+    for (let level = 1; level <= p.champLevel; level++) {
+      const slot = [6, 11, 16].includes(level) ? 4 : level <= 3 ? order[level - 1] : order.find((s) => counts[s] < 5) ?? 4;
+      counts[slot]++;
+      skills.push(slot);
+    }
+    return { puuid: p.puuid, gold, purchases, skills };
+  });
+
+  const objectives: MatchTimeline["objectives"] = [];
+  const spread = (count: number, from: number, to: number) =>
+    Array.from({ length: count }, (_, i) => Math.round(from + ((to - from) * (i + 0.5)) / Math.max(1, count) + rng.int(-50, 50)));
+  for (const team of match.teams) {
+    for (const at of spread(team.dragons, 300, duration - 60)) objectives.push({ at, teamId: team.id, kind: "dragon" });
+    for (const at of spread(team.barons, Math.min(1260, duration - 120), duration - 30)) {
+      objectives.push({ at, teamId: team.id, kind: "baron" });
+    }
+    for (const at of spread(team.towers, 600, duration - 10)) objectives.push({ at, teamId: team.id, kind: "tower" });
+  }
+  objectives.sort((a, b) => a.at - b.at);
+
+  const itemNames: MatchTimeline["itemNames"] = {};
+  for (const p of players) for (const { itemId } of p.purchases) if (ITEM_NAMES[itemId]) itemNames[itemId] = ITEM_NAMES[itemId];
+  return { matchId: match.id, players, objectives, itemNames };
 }

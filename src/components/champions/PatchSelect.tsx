@@ -1,5 +1,6 @@
 "use client";
 
+import { useDict } from "@/i18n/client";
 import { useRouter } from "next/navigation";
 import { useId } from "react";
 
@@ -11,12 +12,13 @@ export function PatchSelect({ patches, current, basePath, keep }: {
   /** Other query parameters to carry over. */
   keep?: Record<string, string>;
 }) {
+  const t = useDict();
   const router = useRouter();
   const id = useId();
   return (
     <div className="flex items-center gap-2">
       <label htmlFor={id} className="label-caps">
-        Patch
+        {t.tierList.patch}
       </label>
       <select
         id={id}

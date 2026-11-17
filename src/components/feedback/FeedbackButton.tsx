@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { sendFeedback, type FeedbackState } from "@/app/actions/feedback";
+import { useDict } from "@/i18n/client";
 
 const initial: FeedbackState = { sent: false, error: null };
 const input =
@@ -10,6 +11,7 @@ const input =
 
 /** "Send feedback" in the footer: opens a small form in a dialog. */
 export function FeedbackButton() {
+  const t = useDict();
   const dialog = useRef<HTMLDialogElement>(null);
   // Bumped on every opening, so each one starts with a fresh form.
   const [opened, setOpened] = useState(0);
@@ -24,12 +26,12 @@ export function FeedbackButton() {
         }}
         className="rounded-lg border border-edge bg-panel px-3 py-1.5 text-xs font-medium text-soft transition-colors hover:border-faint hover:text-fg"
       >
-        Send feedback
+        {t.feedback.button}
       </button>
 
       <dialog
         ref={dialog}
-        aria-label="Send feedback"
+        aria-label={t.feedback.button}
         className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-xl border border-edge bg-panel p-0 text-fg backdrop:bg-black/60"
         // Clicking the dimmed backdrop closes it.
         onClick={(e) => {
@@ -43,6 +45,7 @@ export function FeedbackButton() {
 }
 
 function FeedbackForm({ onDone }: { onDone: () => void }) {
+  const t = useDict();
   const uid = useId();
   const pathname = usePathname();
   const [state, action, pending] = useActionState(sendFeedback, initial);
@@ -58,20 +61,20 @@ function FeedbackForm({ onDone }: { onDone: () => void }) {
     <div className="p-5">
       <div className="flex items-start justify-between gap-4">
         <h2 id={`${uid}-title`} className="text-lg font-semibold">
-          Send feedback
+          {t.feedback.button}
         </h2>
-        <button type="button" onClick={onDone} className="rounded text-sm text-faint hover:text-fg" aria-label="Close">
+        <button type="button" onClick={onDone} className="rounded text-sm text-faint hover:text-fg" aria-label={t.common.close}>
           ✕
         </button>
       </div>
 
       {state.sent ? (
         <p role="status" className="mt-4 text-sm text-win">
-          Thanks! Your message was sent.
+          {t.feedback.sent}
         </p>
       ) : (
         <form action={action} className="mt-3 space-y-3">
-          <p className="text-sm text-soft">Found a bug, or want something added? Tell us.</p>
+          <p className="text-sm text-soft">{t.feedback.intro}</p>
           <input type="hidden" name="page" value={pathname} />
           {/* Hidden from people; only bots fill it in. */}
           <div aria-hidden="true" className="absolute -left-[9999px] h-px w-px overflow-hidden">
@@ -81,7 +84,7 @@ function FeedbackForm({ onDone }: { onDone: () => void }) {
             </label>
           </div>
           <label htmlFor={`${uid}-body`} className="sr-only">
-            Message
+            {t.feedback.message}
           </label>
           <textarea
             id={`${uid}-body`}
@@ -89,18 +92,18 @@ function FeedbackForm({ onDone }: { onDone: () => void }) {
             rows={5}
             maxLength={2000}
             defaultValue={state.values?.body}
-            placeholder="Your message"
+            placeholder={t.feedback.messagePlaceholder}
             className={`${input} resize-y`}
           />
           <label htmlFor={`${uid}-contact`} className="sr-only">
-            How to reach you (optional)
+            {t.feedback.contact}
           </label>
           <input
             id={`${uid}-contact`}
             name="contact"
             maxLength={120}
             defaultValue={state.values?.contact}
-            placeholder="Email or Discord, if you'd like a reply (optional)"
+            placeholder={t.feedback.contactPlaceholder}
             className={input}
           />
           {state.error && (
@@ -113,7 +116,7 @@ function FeedbackForm({ onDone }: { onDone: () => void }) {
             disabled={pending}
             className="rounded-lg bg-brand px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
           >
-            {pending ? "Sending…" : "Send"}
+            {pending ? t.feedback.sending : t.feedback.send}
           </button>
         </form>
       )}

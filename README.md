@@ -1,8 +1,9 @@
 # Buddy.lol
 
 A League of Legends stats site: player profiles with rank, LP history, match
-history and live games; Challenger to Master leaderboards; a lobby
-multi-search; and a champion tier list with builds.
+history (with gold graphs and build orders) and live games; Challenger to
+Master leaderboards; a lobby multi-search; and a champion tier list with
+builds and matchups. In English and Turkish, and installable on a phone.
 
 Built with Next.js 16 (App Router), React 19, TypeScript and Tailwind CSS 4,
 with optional Postgres.
@@ -53,7 +54,7 @@ All optional except the key. See `.env.example`.
 | `COLLECT_REGIONS`   | Regions the collector visits, comma separated. Default `euw`.               |
 | `BUDDY_DATA_FILE`   | Where to keep the JSON file when there is no database.                      |
 | `CONTACT_URL`       | Where the privacy page sends questions, e.g. `mailto:you@example.com`.     |
-| `NOTES_PASSWORD`    | Turns on private player notes and the feedback inbox; anyone with this password can use them. |
+| `NOTES_PASSWORD`    | The moderator password. Turns on comments and the feedback inbox; whoever logs in with it can delete comments and pin players. |
 | `RIOT_VERIFICATION_CODE` | The code Riot asks you to host at `/riot.txt` when applying for a production key. |
 | `RATE_LIMIT_PER_MINUTE` | Lookups one visitor may make per minute. Default 10.                    |
 | `RATE_LIMIT_PER_HOUR`   | Lookups one visitor may make per hour. Default 100.                     |
@@ -70,14 +71,19 @@ All optional except the key. See `.env.example`.
 | `/champions`                                  | Tier list by role and patch                                |
 | `/champions/{key}`                            | One champion: win, pick and ban rate; items, runes, spells |
 | `/api/summoner/{region}/{Name}-{TAG}/matches` | JSON, a page of match history (`?start=10&queue=solo`)     |
+| `/api/match/{region}/{matchId}/timeline`      | JSON, one game's gold per minute, purchases and skill order |
 | `/api/cron/collect`                           | Runs the collector (see below)                             |
 
 **A profile** shows the game the player is in right now (if any), solo and flex
 rank, an LP history graph, a summary of recent games (win rate, form, KDA, kill
 participation, CS, roles), and match history. Queue filters ask Riot for that
 queue's games, so "Ranked Solo" reaches back past the games already loaded. Each
-game shows a 0 to 10 score with MVP and ACE badges, and expands into a full
-scoreboard.
+game shows a 0 to 10 score with MVP and ACE badges, and opens into three
+tabs: the full scoreboard; **Gold**, the team's gold lead minute by minute
+with dragons, Barons and Heralds marked; and **Build**, any player's item
+order and skill order. The last two come from Riot's match timeline, fetched
+when a tab is first opened. A **Played with** card lists the teammates a
+player keeps queueing with, from the games loaded (and the queue filter).
 
 **The score** measures each stat against the best in the game, weighted by role
 (supports are judged on vision and involvement rather than farm). It is our own
@@ -87,19 +93,44 @@ heuristic, not something Riot publishes. See `src/lib/score.ts`.
 no solo rank), LP, season win rate and mastery on the champion they picked,
 plus each team's average rank. That costs two extra Riot requests per player.
 
-**Notes** are private notes on players for the people running the site. Set
-`NOTES_PASSWORD`; whoever enters it (with their name) can read, add and delete
-notes on any profile, and the live game marks players who have notes. Without
-the password nobody sees the notes or even the panel. Notes are stored in the
-same database as everything else.
+**Comments.** Anyone can comment on a player's profile, like a review: an
+optional name, quick tags (Toxic, Carry, Duo, or anything typed) and a few
+lines of text. Each player in a finished game's scoreboard has a comment
+button that jumps to their profile's comments, and the live game shows how
+many comments each player has, with their most used tags. Each address can
+post 5 comments an hour and 20 a day; a hidden field catches simple bots.
+Anyone can report a comment, which lands in the inbox.
+
+Comments need `NOTES_PASSWORD`, the **moderator password**: without someone
+able to remove abuse, the comments box stays hidden. Log in at `/feedback`
+with your name and that password, and every comment gets a Delete button.
+Notes written before comments existed were private; they stay hidden.
+
+**Pinned players.** Moderators get a "Pin to home page" button on each
+profile. Pinned players appear on the home page (only for moderators) with
+their rank, LP and wins and losses over the last 24 hours, and a red dot while
+they're in a game. The collector also saves their ranks on every run, so the
+24-hour change stays accurate.
 
 **Feedback.** With `NOTES_PASSWORD` set, every page has a "Send feedback"
 button in the footer. Messages (plus the page they came from and an optional
-contact) land in the inbox at `/feedback`, which opens with the same password.
-Each address can send 5 an hour, and a hidden field catches simple bots.
+contact) and reported comments land in the inbox at `/feedback`, which opens
+with the moderator password. Each address can send 5 an hour, and a hidden
+field catches simple bots.
 
 **The tier list** grades champions on win rate pulled toward 50% by a hundred
 games, so a champion needs both a good record and enough games to rank highly.
+Champion pages also list the lane opponents a champion does best and worst
+against in the chosen role, from the collected games.
+
+**Languages.** The site is in English and Turkish. A visitor gets the language
+their browser asks for, and the footer switches it (saved in a cookie). Links
+starting `/tr/` or `/en/` switch too, so `https://buddy-lol.vercel.app/tr`
+opens the site in Turkish. Champion, item, rune and spell names come from Data
+Dragon in the same language.
+
+**On a phone**, "Add to Home Screen" (Safari) or "Install app" (Chrome) puts
+the site on the home screen, where it opens full screen like an app.
 
 ## Data that builds up over time
 
@@ -112,7 +143,8 @@ LP history and champion statistics have to be collected, so the site keeps:
   player's graph starts the first time anyone looks them up.
 - **Champion statistics.** Every ranked solo game the site sees, from profiles
   or from the collector, adds to per-patch counts of picks, wins, bans, items,
-  keystones, rune trees and summoner spells. Each game is counted once.
+  keystones, rune trees, summoner spells and lane matchups. Each game is
+  counted once. Matchups started being counted with this version.
 
 Where it is kept:
 
@@ -136,9 +168,15 @@ curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/cron/col
 ```
 
 In development it runs without the secret. `vercel.json` schedules it once a
-day, which is all Vercel's free plan allows; for a tier list that keeps up,
-call it more often from any scheduler (every 5 to 10 minutes stays within a
-development key's limits).
+day, which is all Vercel's free plan allows. For a tier list that keeps up,
+call it more often from a free scheduler such as cron-job.org:
+
+- URL: `https://<your site>/api/cron/collect?budget=40`
+- Schedule: every 10 minutes
+- Header: `Authorization: Bearer <CRON_SECRET>`
+
+A budget of 40 every 10 minutes uses under a tenth of a Personal key's
+allowance, leaving the rest for visitors.
 
 ## Deploying to Vercel
 
@@ -202,10 +240,19 @@ src/
     rank-history.ts       LP history; rank-scale.ts turns ranks into one number.
     champions.ts          Tier list and champion pages.
     collector.ts          The collector job.
+    pinned.ts, timeline.ts  Pinned players for the home page; match timelines.
     demo/                 Seeded sample data: profiles, games, ladders.
     ddragon.ts, assets.ts Data Dragon: patch, champion, item, rune and spell names; image URLs.
     types.ts              The shapes the UI renders. Live and sample data both produce these.
+  i18n/                   Languages: en.ts and tr.ts hold every piece of text.
+  proxy.ts                Picks each visitor's language and serves the page in it.
 ```
+
+Pages live under `app/[lang]/`. The proxy rewrites `/champions` to
+`/en/champions` or `/tr/champions` without changing the address. Server
+components read text with `getDict()`, client components with `useDict()`. To
+add text, add the key to `src/i18n/en.ts` and `src/i18n/tr.ts`; TypeScript
+refuses a key that is missing from either.
 
 Things worth knowing before changing it:
 
@@ -229,10 +276,8 @@ Things worth knowing before changing it:
 
 ## Ideas for later
 
-- Match timelines: gold graphs and item build order (match-v5 timeline endpoint)
 - Rank distribution for a region, built from the collected snapshots
-- Champion matchups and counters from the collected games
-- Other languages, since Data Dragon serves names in most of them
+- More languages: add a dictionary next to `en.ts` and `tr.ts`
 - A shared cache (Redis or similar) once this runs on more than one server
 - A CI workflow running lint, tests and a build on every pull request
 

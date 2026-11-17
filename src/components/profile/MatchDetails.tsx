@@ -1,14 +1,21 @@
+"use client";
+
+import Link from "next/link";
+import { useDict } from "@/i18n/client";
+import type { Dict } from "@/i18n/dictionaries";
 import { championIcon } from "@/lib/assets";
-import { formatCompact, formatKda, formatNumber, initials, kdaRatio } from "@/lib/format";
+import { formatCompact, formatNumber, initials, kdaRatio } from "@/lib/format";
+import { profilePath } from "@/lib/riot-id";
 import type { ItemNames, MatchSummary, TeamSummary } from "@/lib/types";
 import { GameIcon } from "../GameIcon";
 import { ItemRow, Loadout, PlayerLink, ScoreBadge } from "./MatchParts";
 import { kdaTone } from "./SummaryPanel";
 
-function teamTitle(match: MatchSummary, team: TeamSummary): string {
-  if (team.placement) return `Placed ${team.placement}`;
-  if (match.remake) return team.id === 100 ? "Blue side" : "Red side";
-  return `${team.win ? "Victory" : "Defeat"} · ${team.id === 100 ? "Blue" : "Red"} side`;
+function teamTitle(match: MatchSummary, team: TeamSummary, t: Dict): string {
+  if (team.placement) return t.scoreboard.placed(team.placement);
+  const side = team.id === 100 ? t.game.blueSide : t.game.redSide;
+  if (match.remake) return side;
+  return `${team.win ? t.game.win : t.game.loss} · ${side}`;
 }
 
 export function MatchDetails({
@@ -22,7 +29,8 @@ export function MatchDetails({
   assetVersion: string;
   itemNames: ItemNames;
 }) {
-  const everyone = match.teams.flatMap((t) => t.participants);
+  const t = useDict();
+  const everyone = match.teams.flatMap((team) => team.participants);
   const topDamage = Math.max(1, ...everyone.map((p) => p.damage));
   const minutes = match.durationSec / 60;
   const standard = match.teams.length === 2;
@@ -35,23 +43,22 @@ export function MatchDetails({
           <div key={team.id} className="overflow-x-auto">
             <table className="w-full min-w-[720px] border-separate border-spacing-y-1 text-left text-xs">
               <caption className="mb-1 text-left">
-                <span className={`font-semibold ${tone}`}>{teamTitle(match, team)}</span>
+                <span className={`font-semibold ${tone}`}>{teamTitle(match, team, t)}</span>
                 <span className="ml-3 font-mono text-faint">
-                  {team.kills} kills · {formatCompact(team.gold)} gold
-                  {standard &&
-                    ` · ${team.towers} towers · ${team.dragons} dragons · ${team.barons} barons`}
+                  {t.scoreboard.teamLine(team.kills, formatCompact(team.gold))}
+                  {standard && ` · ${t.scoreboard.objectives(team.towers, team.dragons, team.barons)}`}
                 </span>
               </caption>
               <thead>
                 <tr className="label-caps">
-                  <th scope="col" className="pb-1 font-normal">Player</th>
-                  <th scope="col" className="pb-1 font-normal">Score</th>
+                  <th scope="col" className="pb-1 font-normal">{t.scoreboard.player}</th>
+                  <th scope="col" className="pb-1 font-normal">{t.scoreboard.score}</th>
                   <th scope="col" className="pb-1 font-normal">KDA</th>
-                  <th scope="col" className="pb-1 font-normal">Damage</th>
+                  <th scope="col" className="pb-1 font-normal">{t.scoreboard.damage}</th>
                   <th scope="col" className="pb-1 font-normal">CS</th>
-                  <th scope="col" className="pb-1 font-normal">Gold</th>
-                  <th scope="col" className="pb-1 font-normal">Vision</th>
-                  <th scope="col" className="pb-1 font-normal">Items</th>
+                  <th scope="col" className="pb-1 font-normal">{t.scoreboard.gold}</th>
+                  <th scope="col" className="pb-1 font-normal">{t.scoreboard.vision}</th>
+                  <th scope="col" className="pb-1 font-normal">{t.scoreboard.items}</th>
                 </tr>
               </thead>
               <tbody>
@@ -79,6 +86,19 @@ export function MatchDetails({
                             regionSlug={regionSlug}
                             className={`max-w-32 truncate text-sm ${isMe ? "font-semibold" : ""}`}
                           />
+                          {!isMe && p.tagLine && (
+                            <Link
+                              href={`${profilePath(regionSlug, p)}#comments`}
+                              prefetch={false}
+                              title={t.scoreboard.comment(p.gameName)}
+                              aria-label={t.scoreboard.comment(p.gameName)}
+                              className="shrink-0 rounded p-0.5 text-faint transition-colors hover:text-accent"
+                            >
+                              <svg viewBox="0 0 24 24" className="size-3.5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                                <path d="M4 5h16v11H8l-4 4V5Z" strokeLinejoin="round" />
+                              </svg>
+                            </Link>
+                          )}
                         </div>
                       </th>
                       <td className="py-1 pr-3">
@@ -88,10 +108,10 @@ export function MatchDetails({
                         <div>
                           {p.kills}/{p.deaths}/{p.assists}
                         </div>
-                        <div className={kdaTone(ratio)}>{formatKda(ratio)}</div>
+                        <div className={kdaTone(ratio)}>{t.game.kda(ratio)}</div>
                       </td>
                       <td className="py-1 pr-3">
-                        <div className="font-mono tabular-nums" title={`${formatNumber(p.damageTaken)} taken`}>
+                        <div className="font-mono tabular-nums" title={t.scoreboard.taken(formatNumber(p.damageTaken))}>
                           {formatNumber(p.damage)}
                         </div>
                         <div className="mt-1 h-1 w-20 overflow-hidden rounded-full bg-edge">
@@ -108,7 +128,7 @@ export function MatchDetails({
                       <td className="py-1 pr-3 font-mono tabular-nums">{formatCompact(p.gold)}</td>
                       <td className="py-1 pr-3 font-mono tabular-nums">
                         <div>{p.visionScore}</div>
-                        <div className="text-faint" title="Wards placed / destroyed">
+                        <div className="text-faint" title={t.scoreboard.wards}>
                           {p.wardsPlaced}/{p.wardsKilled}
                         </div>
                       </td>

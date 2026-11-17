@@ -1,5 +1,6 @@
 "use server";
 
+import { requestDict } from "@/i18n/request";
 import { createHash } from "node:crypto";
 import { refresh } from "next/cache";
 import { headers } from "next/headers";
@@ -22,7 +23,8 @@ export interface FeedbackState {
 export async function sendFeedback(_: FeedbackState, form: FormData): Promise<FeedbackState> {
   // Feedback is read on the password-protected inbox; without a password
   // nobody could read it, so it isn't collected at all.
-  if (!notesEnabled()) return { sent: false, error: "Feedback isn't set up on this site." };
+  const t = (await requestDict()).feedback;
+  if (!notesEnabled()) return { sent: false, error: t.notSetUp };
 
   const body = String(form.get("body") ?? "").trim();
   const contact = String(form.get("contact") ?? "").trim();
@@ -32,12 +34,12 @@ export async function sendFeedback(_: FeedbackState, form: FormData): Promise<Fe
   // away; they are told it worked and nothing is stored.
   if (String(form.get("website") ?? "") !== "") return { sent: true, error: null };
 
-  if (!body) return { sent: false, error: "Write a message first.", values };
+  if (!body) return { sent: false, error: t.empty, values };
   if (body.length > MAX_FEEDBACK) {
-    return { sent: false, error: `Messages can be up to ${MAX_FEEDBACK} characters.`, values };
+    return { sent: false, error: t.tooLong(MAX_FEEDBACK), values };
   }
   if (contact.length > MAX_CONTACT) {
-    return { sent: false, error: "That contact is too long.", values };
+    return { sent: false, error: t.contactTooLong, values };
   }
 
   const ip = clientIp(await headers());
@@ -48,14 +50,14 @@ export async function sendFeedback(_: FeedbackState, form: FormData): Promise<Fe
     const store = getStore();
     const sentThisHour = await store.countHits(`feedback:${visitor}`, windowStart, 1);
     if (sentThisHour > MAX_PER_HOUR) {
-      return { sent: false, error: "Thanks, but that's a lot of messages. Try again in an hour.", values };
+      return { sent: false, error: t.tooMany, values };
     }
     const rawPage = String(form.get("page") ?? "/");
     const page = rawPage.startsWith("/") ? rawPage.slice(0, 200) : "/";
     await store.addFeedback({ body, contact, page, at: Date.now() });
   } catch (err) {
     console.warn("Could not save feedback.", err);
-    return { sent: false, error: "Your message couldn't be sent right now. Please try again later.", values };
+    return { sent: false, error: t.failed, values };
   }
   return { sent: true, error: null };
 }

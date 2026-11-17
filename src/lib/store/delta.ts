@@ -24,7 +24,21 @@ export function matchDelta(
     champions: [],
     bans: [...new Set(match.teams.flatMap((t) => t.bans))],
     picks: [],
+    matchups: [],
   };
+
+  // Lane opponents: the two players in the same position on opposite teams.
+  const [blue, red] = match.teams.map((t) => t.participants);
+  if (blue?.length === 5 && red?.length === 5) {
+    for (const b of blue) {
+      const r = red.find((p) => p.position === b.position);
+      if (!r) continue;
+      delta.matchups.push(
+        { champion: b.championKey, position: b.position!, opponent: r.championKey, win: b.win },
+        { champion: r.championKey, position: r.position!, opponent: b.championKey, win: r.win },
+      );
+    }
+  }
 
   for (const p of players) {
     delta.champions.push({ champion: p.championKey, position: p.position!, win: p.win });

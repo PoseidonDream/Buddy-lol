@@ -37,13 +37,13 @@ export function rankFromValue(value: number, apexTier: Tier = "MASTER"): RankPoi
   return { tier, division: DIVISIONS[Math.floor(rest / 100)], lp: rest % 100 };
 }
 
-export function formatRank({ tier, division, lp }: RankPoint): string {
-  return `${tierName(tier)}${APEX_TIERS.has(tier) ? "" : ` ${division}`} · ${lp} LP`;
+export function formatRank({ tier, division, lp }: RankPoint, name: (tier: Tier) => string = tierName): string {
+  return `${name(tier)}${APEX_TIERS.has(tier) ? "" : ` ${division}`} · ${lp} LP`;
 }
 
 /** Name of the band that starts at a gridline value: "Gold", or "Gold II" for a division line. */
-export function bandName(value: number, divisions: boolean): string {
-  if (value >= APEX_FLOOR) return "Master";
+export function bandName(value: number, divisions: boolean, name: (tier: Tier) => string = tierName): string {
+  if (value >= APEX_FLOOR) return name("MASTER");
   const { tier, division } = rankFromValue(value);
-  return divisions ? `${tierName(tier)} ${division}` : tierName(tier);
+  return divisions ? `${name(tier)} ${division}` : name(tier);
 }

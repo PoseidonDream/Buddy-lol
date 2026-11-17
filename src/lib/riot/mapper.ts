@@ -7,6 +7,8 @@ import type {
   LiveTeam,
   MasteryEntry,
   MatchSummary,
+  MatchTimeline,
+  ObjectiveKind,
   ParticipantSummary,
   Position,
   RankedEntry,
@@ -20,6 +22,7 @@ import type {
   MasteryDto,
   MatchDto,
   ParticipantDto,
+  TimelineDto,
 } from "./types";
 
 export type ChampionLookup = (
@@ -227,4 +230,69 @@ export function mapLiveGame(dto: CurrentGameDto, champion: ChampionLookup): Live
     startedAt: dto.gameStartTime ? dto.gameStartTime : null,
     teams: [...teams.values()].sort((a, b) => a.id - b.id),
   };
+}
+
+const MONSTERS: Record<string, ObjectiveKind> = {
+  DRAGON: "dragon",
+  BARON_NASHOR: "baron",
+  RIFTHERALD: "herald",
+  HORDE: "grubs",
+  ATAKHAN: "atakhan",
+};
+
+/**
+ * Boils a timeline down to what the match page draws: gold per minute,
+ * purchases, skill order and objectives. Item names are filled in later.
+ */
+export function mapTimeline(dto: TimelineDto, matchId: string): Omit<MatchTimeline, "itemNames"> {
+  const ids =
+    dto.info.participants ??
+    (dto.metadata?.participants ?? []).map((puuid, i) => ({ participantId: i + 1, puuid }));
+
+  const players = new Map(
+    ids.map(({ participantId, puuid }) => [
+      participantId,
+      { puuid, gold: [] as number[], purchases: [] as { at: number; itemId: number }[], skills: [] as number[] },
+    ]),
+  );
+  // Monsters name the killer, not always the team; players 1-5 are on team 100.
+  const teamOf = (participantId: number | undefined) =>
+    participantId && participantId >= 1 && participantId <= 5 ? 100 : participantId && participantId <= 10 ? 200 : 0;
+
+  const objectives: MatchTimeline["objectives"] = [];
+  for (const frame of dto.info.frames) {
+    for (const [pid, p] of players) p.gold.push(frame.participantFrames?.[String(pid)]?.totalGold ?? p.gold.at(-1) ?? 0);
+
+    for (const e of frame.events ?? []) {
+      const at = Math.round(e.timestamp / 1000);
+      const p = e.participantId ? players.get(e.participantId) : undefined;
+      switch (e.type) {
+        case "ITEM_PURCHASED":
+          if (p && e.itemId) p.purchases.push({ at, itemId: e.itemId });
+          break;
+        case "ITEM_UNDO":
+          // Undoing a purchase: drop the latest purchase of that item.
+          if (p && e.beforeId && !e.afterId) {
+            const i = p.purchases.findLastIndex((x) => x.itemId === e.beforeId);
+            if (i >= 0) p.purchases.splice(i, 1);
+          }
+          break;
+        case "SKILL_LEVEL_UP":
+          if (p && e.skillSlot && e.skillSlot <= 4 && (e.levelUpType ?? "NORMAL") === "NORMAL") p.skills.push(e.skillSlot);
+          break;
+        case "ELITE_MONSTER_KILL": {
+          const kind = MONSTERS[e.monsterType ?? ""];
+          const teamId = e.killerTeamId || teamOf(e.killerId);
+          if (kind && teamId) objectives.push({ at, teamId, kind });
+          break;
+        }
+        case "BUILDING_KILL": {
+          const kind = e.buildingType === "TOWER_BUILDING" ? "tower" : e.buildingType === "INHIBITOR_BUILDING" ? "inhibitor" : null;
+          if (kind && (e.teamId === 100 || e.teamId === 200)) objectives.push({ at, teamId: 300 - e.teamId, kind });
+          break;
+        }
+      }
+    }
+  }
+  return { matchId, players: [...players.values()], objectives };
 }
