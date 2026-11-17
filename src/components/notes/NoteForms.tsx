@@ -2,7 +2,8 @@
 
 import { useActionState, useId } from "react";
 import { addNote, deleteNote, unlockNotes, type NotesFormState } from "@/app/actions/notes";
-import { MAX_TAG_LENGTH, PRESET_TAGS, TAG_LABELS } from "@/lib/note-tags";
+import { useDict } from "@/i18n/client";
+import { MAX_TAG_LENGTH, PRESET_TAGS } from "@/lib/note-tags";
 
 const PILL_TONES = {
   good: "has-checked:border-win has-checked:bg-win/20 has-checked:text-win",
@@ -17,30 +18,31 @@ const button =
 const initial: NotesFormState = { error: null };
 
 export function UnlockNotesForm() {
+  const t = useDict();
   const uid = useId();
   const [state, action, pending] = useActionState(unlockNotes, initial);
   return (
     <form action={action} className="mt-3 space-y-2">
       <label htmlFor={`${uid}-name`} className="sr-only">
-        Your name
+        {t.notes.name}
       </label>
       <input
         id={`${uid}-name`}
         name="name"
         defaultValue={state.values?.name}
-        placeholder="Your name"
+        placeholder={t.notes.name}
         autoComplete="nickname"
         maxLength={24}
         className={input}
       />
       <label htmlFor={`${uid}-password`} className="sr-only">
-        Notes password
+        {t.notes.password}
       </label>
       <input
         id={`${uid}-password`}
         name="password"
         type="password"
-        placeholder="Notes password"
+        placeholder={t.notes.password}
         autoComplete="current-password"
         className={input}
       />
@@ -50,7 +52,7 @@ export function UnlockNotesForm() {
         </p>
       )}
       <button type="submit" disabled={pending} className={button}>
-        {pending ? "Checking…" : "Unlock notes"}
+        {pending ? t.notes.checking : t.notes.unlock}
       </button>
     </form>
   );
@@ -65,6 +67,7 @@ export function AddNoteForm({
   region: string;
   riotId: string;
 }) {
+  const t = useDict();
   const uid = useId();
   const [state, action, pending] = useActionState(addNote, initial);
   const checked = new Set(state.values?.tags?.split("\n"));
@@ -75,7 +78,7 @@ export function AddNoteForm({
       <input type="hidden" name="region" value={region} />
       <input type="hidden" name="riotId" value={riotId} />
       <fieldset>
-        <legend className="sr-only">Tags</legend>
+        <legend className="sr-only">{t.notes.tagsLegend}</legend>
         <div className="flex flex-wrap gap-1.5">
           {PRESET_TAGS.map((tag) => (
             <label
@@ -89,24 +92,24 @@ export function AddNoteForm({
                 defaultChecked={checked.has(tag.id)}
                 className="sr-only"
               />
-              {TAG_LABELS[tag.id]}
+              {t.tags[tag.id]}
             </label>
           ))}
         </div>
       </fieldset>
       <label htmlFor={`${uid}-tags`} className="sr-only">
-        Other tags, separated by commas
+        {t.notes.otherTags}
       </label>
       <input
         id={`${uid}-tags`}
         name="customTags"
         defaultValue={state.values?.customTags}
         maxLength={MAX_TAG_LENGTH * 3}
-        placeholder="Other tags, e.g. duo with Kaori"
+        placeholder={t.notes.otherTagsPlaceholder}
         className={input}
       />
       <label htmlFor={`${uid}-body`} className="sr-only">
-        New note
+        {t.notes.newNote}
       </label>
       <textarea
         id={`${uid}-body`}
@@ -114,7 +117,7 @@ export function AddNoteForm({
         defaultValue={state.values?.body}
         rows={3}
         maxLength={1000}
-        placeholder="Add a note about this player…"
+        placeholder={t.notes.placeholder}
         className={`${input} resize-y`}
       />
       {state.error && (
@@ -123,23 +126,24 @@ export function AddNoteForm({
         </p>
       )}
       <button type="submit" disabled={pending} className={button}>
-        {pending ? "Saving…" : "Save note"}
+        {pending ? t.notes.saving : t.notes.save}
       </button>
     </form>
   );
 }
 
 export function DeleteNoteButton({ id }: { id: string }) {
+  const t = useDict();
   return (
     <form
       action={deleteNote}
       onSubmit={(e) => {
-        if (!window.confirm("Delete this note?")) e.preventDefault();
+        if (!window.confirm(t.notes.confirmDelete)) e.preventDefault();
       }}
     >
       <input type="hidden" name="id" value={id} />
       <button type="submit" className="rounded text-xs text-faint hover:text-loss">
-        Delete
+        {t.common.delete}
       </button>
     </form>
   );

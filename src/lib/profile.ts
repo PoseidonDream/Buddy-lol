@@ -1,6 +1,8 @@
 import "server-only";
 
 import { demoMatches, demoProfile } from "./demo/generate";
+import { dictionaries } from "@/i18n/dictionaries";
+import type { Locale } from "@/i18n/config";
 import { getStaticData } from "./ddragon";
 import { queueGroup, type ServerFilter } from "./game-data";
 import { collectItemNames } from "./item-names";
@@ -34,15 +36,12 @@ function fail<T>(kind: ProfileError["kind"], message: string): Result<T> {
   return { ok: false, error: { kind, message } };
 }
 
-export function describeRiotError<T>(err: unknown): Result<T> {
+export function describeRiotError<T>(err: unknown, locale: Locale = "en"): Result<T> {
   if (!(err instanceof RiotApiError)) throw err;
-  if (err.status === 429) {
-    return fail("rate_limited", "We're asking Riot for too much at once. Give it a minute and try again.");
-  }
-  if (err.status === 401 || err.status === 403) {
-    return fail("auth", "Riot rejected the API key. Development keys expire after 24 hours, so it may need replacing.");
-  }
-  return fail("upstream", "Riot's servers didn't answer properly. Try again in a moment.");
+  const t = dictionaries[locale].errors;
+  if (err.status === 429) return fail("rate_limited", t.rateLimited);
+  if (err.status === 401 || err.status === 403) return fail("auth", t.auth);
+  return fail("upstream", t.upstream);
 }
 
 function resolve(regionSlug: string, riotIdSlug: string): { region: Region; id: RiotId } | null {
@@ -51,7 +50,6 @@ function resolve(regionSlug: string, riotIdSlug: string): { region: Region; id: 
   return region && id ? { region, id } : null;
 }
 
-const INVALID = "That doesn't look like a Riot ID. It should read like Name#TAG.";
 
 /** Fetch matches a few at a time: a burst of 10+ parallel calls trips the rate limit. */
 async function fetchMatches(
@@ -96,12 +94,14 @@ export async function getProfile(
   regionSlug: string,
   riotIdSlug: string,
   size: ProfileSize = FULL_PROFILE,
+  locale: Locale = "en",
 ): Promise<Result<Profile>> {
+  const t = dictionaries[locale].errors;
   const target = resolve(regionSlug, riotIdSlug);
-  if (!target) return fail("invalid", INVALID);
+  if (!target) return fail("invalid", t.invalidId);
   const { region, id } = target;
 
-  const staticData = await getStaticData();
+  const staticData = await getStaticData(locale);
   const now = Date.now();
 
   if (isDemoMode()) {
@@ -117,7 +117,7 @@ export async function getProfile(
   try {
     const account = await getAccount(region, id.gameName, id.tagLine);
     if (!account) {
-      return fail("not_found", `No account called ${id.gameName}#${id.tagLine} exists.`);
+      return fail("not_found", t.noAccount(`${id.gameName}#${id.tagLine}`));
     }
     const { puuid } = account;
 
@@ -130,10 +130,7 @@ export async function getProfile(
       getMatchIds(region, puuid, 0, size.matches + 1),
     ]);
     if (!summoner) {
-      return fail(
-        "not_found",
-        `${id.gameName}#${id.tagLine} exists, but has no League of Legends profile on ${region.label}. Try another region.`,
-      );
+      return fail("not_found", t.noProfile(`${id.gameName}#${id.tagLine}`, region.label));
     }
 
     const ids = matchIds ?? [];
@@ -165,7 +162,7 @@ export async function getProfile(
       },
     };
   } catch (err) {
-    return describeRiotError(err);
+    return describeRiotError(err, locale);
   }
 }
 
@@ -178,9 +175,11 @@ export async function getMatchPage(
   riotIdSlug: string,
   start: number,
   filter?: ServerFilter,
+  locale: Locale = "en",
 ): Promise<Result<MatchPage>> {
+  const t = dictionaries[locale].errors;
   const target = resolve(regionSlug, riotIdSlug);
-  if (!target) return fail("invalid", INVALID);
+  if (!target) return fail("invalid", t.invalidId);
   const { region, id } = target;
 
   if (isDemoMode()) {
@@ -192,10 +191,10 @@ export async function getMatchPage(
 
   try {
     const account = await getAccount(region, id.gameName, id.tagLine);
-    if (!account) return fail("not_found", "That account no longer exists.");
+    if (!account) return fail("not_found", t.accountGone);
 
     const [staticData, matchIds] = await Promise.all([
-      getStaticData(),
+      getStaticData(locale),
       getMatchIds(region, account.puuid, start, MATCH_PAGE_SIZE + 1, filter),
     ]);
     const ids = matchIds ?? [];
@@ -218,6 +217,6 @@ export async function getMatchPage(
       },
     };
   } catch (err) {
-    return describeRiotError(err);
+    return describeRiotError(err, locale);
   }
 }

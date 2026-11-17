@@ -2,17 +2,8 @@
 
 import { useId, useState } from "react";
 import { championIcon } from "@/lib/assets";
-import {
-  formatDuration,
-  formatKda,
-  initials,
-  kdaRatio,
-  MULTI_KILL_NAMES,
-  ordinal,
-  percent,
-  timeAgo,
-} from "@/lib/format";
-import { queueName } from "@/lib/game-data";
+import { formatDuration, initials, kdaRatio, percent, timeAgo } from "@/lib/format";
+import { useDict } from "@/i18n/client";
 import { highlights, outcomeOf, type Outcome } from "@/lib/stats";
 import type { ItemNames, MatchSummary } from "@/lib/types";
 import { GameIcon } from "../GameIcon";
@@ -20,10 +11,10 @@ import { MatchExpanded } from "./MatchExpanded";
 import { ItemRow, Loadout, PlayerLink, ScoreBadge } from "./MatchParts";
 import { kdaTone } from "./SummaryPanel";
 
-const OUTCOME_STYLE: Record<Outcome, { card: string; text: string; label: string }> = {
-  win: { card: "border-l-win bg-win-wash", text: "text-win", label: "Victory" },
-  loss: { card: "border-l-loss bg-loss-wash", text: "text-loss", label: "Defeat" },
-  remake: { card: "border-l-faint bg-panel", text: "text-soft", label: "Remake" },
+const OUTCOME_STYLE: Record<Outcome, { card: string; text: string }> = {
+  win: { card: "border-l-win bg-win-wash", text: "text-win" },
+  loss: { card: "border-l-loss bg-loss-wash", text: "text-loss" },
+  remake: { card: "border-l-faint bg-panel", text: "text-soft" },
 };
 
 function Roster({
@@ -73,6 +64,7 @@ export function MatchCard({
   itemNames: ItemNames;
   now: number;
 }) {
+  const t = useDict();
   const [open, setOpen] = useState(false);
   const { me } = match;
   const outcome = outcomeOf(match);
@@ -80,11 +72,11 @@ export function MatchCard({
   const minutes = match.durationSec / 60;
   const ratio = kdaRatio(me.kills, me.deaths, me.assists);
   const teamKills = match.teams.find((t) => t.id === me.teamId)?.kills ?? 0;
-  const multiKill = MULTI_KILL_NAMES[me.largestMultiKill];
+  const multiKill = t.game.multiKill(me.largestMultiKill);
   const tags = highlights(match);
   const detailsId = useId();
-  const queue = queueName(match.queueId, match.gameMode);
-  const result = me.placement ? `${ordinal(me.placement)} place` : style.label;
+  const queue = t.game.queue(match.queueId, match.gameMode);
+  const result = me.placement ? t.match.place(me.placement) : t.match.outcome[outcome];
 
   return (
     <li
@@ -94,9 +86,9 @@ export function MatchCard({
       <div className="flex items-center gap-3 p-3 sm:gap-4 sm:px-4">
         <div className="w-24 shrink-0 text-xs leading-relaxed max-sm:hidden">
           <p className={`font-semibold ${style.text}`}>{queue}</p>
-          <p className="text-faint">{timeAgo(match.endedAt, now)}</p>
+          <p className="text-faint">{timeAgo(match.endedAt, now, t.time)}</p>
           <p className="mt-1 font-medium text-fg">{result}</p>
-          <p className="font-mono text-faint">{formatDuration(match.durationSec)}</p>
+          <p className="font-mono text-faint">{formatDuration(match.durationSec, t.time)}</p>
         </div>
 
         <div className="min-w-0 flex-1 space-y-2.5">
@@ -105,7 +97,7 @@ export function MatchCard({
             <span className="text-fg"> · {result}</span>
             <span className="text-faint">
               {" "}
-              · {formatDuration(match.durationSec)} · {timeAgo(match.endedAt, now)}
+              · {formatDuration(match.durationSec, t.time)} · {timeAgo(match.endedAt, now, t.time)}
             </span>
           </p>
 
@@ -132,7 +124,7 @@ export function MatchCard({
                 <span className="text-faint">/</span> {me.assists}
               </p>
               <p className="mt-0.5 font-mono text-xs">
-                <span className={kdaTone(ratio)}>{formatKda(ratio)}</span>
+                <span className={kdaTone(ratio)}>{t.game.kda(ratio)}</span>
                 <span className="text-faint"> KDA</span>
               </p>
               <p className="mt-1.5">
@@ -142,18 +134,18 @@ export function MatchCard({
 
             <dl className="shrink-0 font-mono text-xs leading-relaxed text-soft max-[420px]:hidden">
               <div>
-                <dt className="sr-only">Creep score</dt>
+                <dt className="sr-only">{t.match.creepScore}</dt>
                 <dd>
                   {me.cs} CS <span className="text-faint">({(me.cs / minutes).toFixed(1)})</span>
                 </dd>
               </div>
               <div>
-                <dt className="sr-only">Kill participation</dt>
-                <dd>{percent(me.kills + me.assists, teamKills)}% KP</dd>
+                <dt className="sr-only">{t.match.killParticipation}</dt>
+                <dd>{t.match.kp(percent(me.kills + me.assists, teamKills))}</dd>
               </div>
               <div>
-                <dt className="sr-only">Vision score</dt>
-                <dd>{me.visionScore} vision</dd>
+                <dt className="sr-only">{t.match.visionScore}</dt>
+                <dd>{t.match.vision(me.visionScore)}</dd>
               </div>
             </dl>
           </div>
@@ -167,7 +159,7 @@ export function MatchCard({
                 )}
                 {tags.map((tag) => (
                   <li key={tag} className="rounded-full bg-accent/15 px-2 py-0.5 text-accent">
-                    {tag}
+                    {t.match.highlight[tag]}
                   </li>
                 ))}
               </ul>
@@ -186,7 +178,7 @@ export function MatchCard({
           aria-controls={detailsId}
           className="flex size-9 shrink-0 items-center justify-center rounded-lg text-soft transition-colors hover:bg-ink/40 hover:text-fg"
         >
-          <span className="sr-only">{open ? "Hide" : "Show"} scoreboard</span>
+          <span className="sr-only">{open ? t.match.hideDetails : t.match.showDetails}</span>
           <svg
             viewBox="0 0 16 16"
             className={`size-4 transition-transform ${open ? "rotate-180" : ""}`}

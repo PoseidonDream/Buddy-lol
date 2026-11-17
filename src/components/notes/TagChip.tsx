@@ -1,4 +1,7 @@
-import { TAG_LABELS, isPreset, tagTone } from "@/lib/note-tags";
+"use client";
+
+import { useDict } from "@/i18n/client";
+import { isPreset, tagTone } from "@/lib/note-tags";
 
 const TONES = {
   good: "bg-win/15 text-win",
@@ -8,11 +11,12 @@ const TONES = {
 
 /** One note tag as a small coloured label: green for good, red for bad. */
 export function TagChip({ tag, className = "" }: { tag: string; className?: string }) {
+  const t = useDict();
   return (
     <span
       className={`inline-block whitespace-nowrap rounded px-1.5 py-px text-[11px] font-medium ${TONES[tagTone(tag)]} ${className}`}
     >
-      {isPreset(tag) ? TAG_LABELS[tag] : tag}
+      {isPreset(tag) ? t.tags[tag] : tag}
     </span>
   );
 }

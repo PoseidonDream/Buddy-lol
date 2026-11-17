@@ -13,6 +13,8 @@ import {
   passwordMatches,
   signSession,
 } from "@/lib/notes-auth";
+import { dictionaries } from "@/i18n/dictionaries";
+import { requestDict } from "@/i18n/request";
 import { cleanTags } from "@/lib/note-tags";
 import { clientIp } from "@/lib/rate-limit";
 import { getRegion } from "@/lib/regions";
@@ -31,7 +33,8 @@ export interface NotesFormState {
 const MAX_ATTEMPTS_PER_HOUR = 10;
 
 export async function unlockNotes(_: NotesFormState, form: FormData): Promise<NotesFormState> {
-  if (!notesEnabled()) return { error: "Notes are not set up on this site." };
+  const t = (await requestDict()).notes;
+  if (!notesEnabled()) return { error: t.notSetUp };
 
   const ip = clientIp(await headers());
   const hour = 60 * 60 * 1000;
@@ -41,13 +44,13 @@ export async function unlockNotes(_: NotesFormState, form: FormData): Promise<No
     .countHits(`notes-login:${visitor}`, windowStart, 1)
     .catch(() => 0);
   if (attempts > MAX_ATTEMPTS_PER_HOUR) {
-    return { error: "Too many attempts. Try again in an hour.", values: { name: cleanName(form.get("name")) } };
+    return { error: t.tooManyAttempts, values: { name: cleanName(form.get("name")) } };
   }
 
   const name = cleanName(form.get("name"));
-  if (!name) return { error: "Enter your name, so notes show who wrote them." };
+  if (!name) return { error: t.needName };
   if (!passwordMatches(String(form.get("password") ?? ""))) {
-    return { error: "That password isn't right.", values: { name } };
+    return { error: t.wrongPassword, values: { name } };
   }
 
   (await cookies()).set(NOTES_COOKIE, signSession(name), {
@@ -69,19 +72,24 @@ export async function lockNotes(): Promise<void> {
 export async function addNote(_: NotesFormState, form: FormData): Promise<NotesFormState> {
   const body = String(form.get("body") ?? "").trim();
   const typedTags = String(form.get("customTags") ?? "");
-  const tags = cleanTags([...form.getAll("tag").map(String), ...typedTags.split(",")]);
+  const t = (await requestDict()).notes;
+  // Typed tags are matched against the preset names in every language.
+  const tags = cleanTags(
+    [...form.getAll("tag").map(String), ...typedTags.split(",")],
+    Object.values(dictionaries).map((d) => d.tags),
+  );
   // Sent back on errors so nothing typed or ticked is lost.
   const values = { body, customTags: typedTags, tags: tags.join("\n") };
 
   const author = await currentWriter();
-  if (!author) return { error: "Your notes session has ended. Unlock notes again.", values };
+  if (!author) return { error: t.sessionEnded, values };
 
   const puuid = String(form.get("puuid") ?? "");
   const region = getRegion(String(form.get("region") ?? ""));
   const riotId = String(form.get("riotId") ?? "").slice(0, 40);
-  if (!body && tags.length === 0) return { error: "Write something or pick a tag first.", values };
-  if (body.length > MAX_NOTE) return { error: `Notes can be up to ${MAX_NOTE} characters.`, values };
-  if (!region || !puuid || puuid.length > 100 || !riotId) return { error: "Unknown player.", values };
+  if (!body && tags.length === 0) return { error: t.empty, values };
+  if (body.length > MAX_NOTE) return { error: t.tooLong(MAX_NOTE), values };
+  if (!region || !puuid || puuid.length > 100 || !riotId) return { error: t.unknownPlayer, values };
 
   await getStore().addNote({ puuid, regionSlug: region.slug, riotId, author, body, tags, at: Date.now() });
   refresh();

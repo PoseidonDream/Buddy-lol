@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { MAX_LOBBY_PLAYERS, lobbyToQuery, parseLobby } from "@/lib/lobby";
+import { useDict } from "@/i18n/client";
 import { DEFAULT_REGION, REGIONS, getRegion } from "@/lib/regions";
 import { storeRegion, useStoredRegion } from "@/lib/storage";
 
@@ -24,6 +25,7 @@ export function MultiSearchForm({
   initialText: string;
   showSample: boolean;
 }) {
+  const t = useDict();
   const router = useRouter();
   const uid = useId();
   const storedRegion = useStoredRegion();
@@ -37,12 +39,12 @@ export function MultiSearchForm({
     event.preventDefault();
     const { players, rejected, dropped } = parseLobby(text, region.defaultTag);
     if (players.length === 0) {
-      setProblem("No Riot IDs found. Paste lines like “Name #TAG joined the lobby”, or IDs separated by commas.");
+      setProblem(t.multi.noIds);
       return;
     }
     const notes = [];
-    if (rejected.length) notes.push(`Skipped ${rejected.length} line${rejected.length > 1 ? "s" : ""} that didn't read as a Riot ID.`);
-    if (dropped) notes.push(`Only the first ${MAX_LOBBY_PLAYERS} players are shown.`);
+    if (rejected.length) notes.push(t.multi.skipped(rejected.length));
+    if (dropped) notes.push(t.multi.firstOnly(MAX_LOBBY_PLAYERS));
     setProblem(notes.length ? notes.join(" ") : null);
 
     const params = new URLSearchParams({ region: region.slug, q: lobbyToQuery(players) });
@@ -52,7 +54,7 @@ export function MultiSearchForm({
   return (
     <form onSubmit={submit} className="card space-y-3 p-4" noValidate>
       <label htmlFor={`${uid}-text`} className="block text-sm font-medium">
-        Paste the lobby chat, or Riot IDs separated by commas
+        {t.multi.label}
       </label>
       <textarea
         id={`${uid}-text`}
@@ -63,7 +65,7 @@ export function MultiSearchForm({
         }}
         rows={5}
         spellCheck={false}
-        placeholder={`Name #${region.defaultTag} joined the lobby\nAnother Player #${region.defaultTag} joined the lobby`}
+        placeholder={t.multi.placeholder(region.defaultTag)}
         className="w-full resize-y rounded-lg border border-edge bg-ink/60 px-3 py-2 font-mono text-sm text-fg outline-none placeholder:text-faint focus:border-accent"
         aria-describedby={problem ? `${uid}-problem` : undefined}
       />
@@ -74,7 +76,7 @@ export function MultiSearchForm({
       )}
       <div className="flex flex-wrap items-center gap-3">
         <label className="sr-only" htmlFor={`${uid}-region`}>
-          Region
+          {t.search.region}
         </label>
         <select
           id={`${uid}-region`}
@@ -86,7 +88,7 @@ export function MultiSearchForm({
           className="h-10 cursor-pointer rounded-lg border border-edge bg-raised px-3 font-mono text-sm"
         >
           {REGIONS.map((r) => (
-            <option key={r.slug} value={r.slug} title={r.name}>
+            <option key={r.slug} value={r.slug} title={t.game.regionName(r.slug)}>
               {r.label}
             </option>
           ))}
@@ -96,7 +98,7 @@ export function MultiSearchForm({
           disabled={pending}
           className="h-10 rounded-lg bg-brand px-5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-60"
         >
-          {pending ? "Looking up…" : "Look up players"}
+          {pending ? t.multi.lookingUp : t.multi.submit}
         </button>
         {showSample && (
           <button
@@ -108,7 +110,7 @@ export function MultiSearchForm({
             }}
             className="text-sm text-accent hover:underline"
           >
-            Fill in a sample lobby
+            {t.multi.sample}
           </button>
         )}
       </div>

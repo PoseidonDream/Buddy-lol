@@ -14,16 +14,18 @@ export function outcomeOf(match: MatchSummary): Outcome {
  * Short labels for what stood out about the player's game. At most a couple
  * per match, and none for remakes.
  */
-export function highlights(match: MatchSummary): string[] {
+export type Highlight = "mostDamage" | "deathless";
+
+export function highlights(match: MatchSummary): Highlight[] {
   if (match.remake) return [];
   const { me } = match;
-  const out: string[] = [];
+  const out: Highlight[] = [];
 
   const everyone = match.teams.flatMap((t) => t.participants);
   const topDamage = Math.max(...everyone.map((p) => p.damage));
-  if (me.damage > 0 && me.damage === topDamage) out.push("Most damage");
+  if (me.damage > 0 && me.damage === topDamage) out.push("mostDamage");
 
-  if (me.deaths === 0 && me.kills + me.assists >= 5) out.push("Deathless");
+  if (me.deaths === 0 && me.kills + me.assists >= 5) out.push("deathless");
 
   return out;
 }

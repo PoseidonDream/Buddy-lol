@@ -3,6 +3,7 @@
  * current, and which champion a numeric id refers to.
  */
 
+import { DDRAGON_LOCALE, type Locale } from "@/i18n/config";
 import { CHAMPION_POOL, ITEM_NAMES, RUNES, SPELLS, type ChampionInfo } from "./game-data";
 
 const BASE = "https://ddragon.leagueoflegends.com";
@@ -89,11 +90,15 @@ const FALLBACK_CHAMPIONS = new Map<number, ChampionInfo>(
   CHAMPION_POOL.map((c) => [c.id, { id: c.id, key: c.key, name: c.name }]),
 );
 
-export async function getStaticData(): Promise<StaticData> {
+/**
+ * Static data with names in the given language. Data Dragon serves every
+ * language from the same patch; the built-in English tables fill any gaps.
+ */
+export async function getStaticData(locale: Locale = "en"): Promise<StaticData> {
   const versions = await getJson<string[]>(`${BASE}/api/versions.json`);
   const version = versions?.[0] ?? FALLBACK_VERSION;
 
-  const data = `${BASE}/cdn/${version}/data/en_US`;
+  const data = `${BASE}/cdn/${version}/data/${DDRAGON_LOCALE[locale]}`;
   const [file, itemFile, runeFile, spellFile] = await Promise.all([
     getJson<ChampionFile>(`${data}/champion.json`),
     getJson<ItemFile>(`${data}/item.json`),

@@ -92,12 +92,12 @@ describe("highlights", () => {
   };
 
   it("flags the highest damage in the game", () => {
-    expect(highlights(withRival({ damage: 30_000, deaths: 3 }, 20_000))).toEqual(["Most damage"]);
+    expect(highlights(withRival({ damage: 30_000, deaths: 3 }, 20_000))).toEqual(["mostDamage"]);
     expect(highlights(withRival({ damage: 10_000, deaths: 3 }, 20_000))).toEqual([]);
   });
 
   it("flags a deathless game only when the player was involved", () => {
-    expect(highlights(withRival({ kills: 4, assists: 6, deaths: 0, damage: 1 }, 20_000))).toEqual(["Deathless"]);
+    expect(highlights(withRival({ kills: 4, assists: 6, deaths: 0, damage: 1 }, 20_000))).toEqual(["deathless"]);
     expect(highlights(withRival({ kills: 0, assists: 1, deaths: 0, damage: 1 }, 20_000))).toEqual([]);
   });
 

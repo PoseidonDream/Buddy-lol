@@ -8,7 +8,12 @@ import { parseRiotIdInput, type RiotId } from "./riot-id";
 
 export const MAX_LOBBY_PLAYERS = 5;
 
-const CHAT_NOISE = /\s+(joined|left) the (lobby|room|game|champ(ion)? select)\.?\s*$/i;
+/** "… joined the lobby" in English and Turkish clients, for names pasted without a tag. */
+const CHAT_NOISE =
+  /\s+(?:(?:joined|left) the (?:lobby|room|game|champ(?:ion)? select)|(?:lobiye|odaya|gruba) katıldı|(?:lobiden|odadan|gruptan) ayrıldı)\.?\s*$/iu;
+
+/** Whatever follows a tag is chat text, in any language: "Name #TAG lobiye katıldı" -> "Name #TAG". */
+const AFTER_TAG = /^(.*?#\s*[\p{L}\p{N}]{2,5})\s+\S.*$/u;
 
 export interface LobbyParse {
   players: RiotId[];
@@ -26,7 +31,7 @@ export function parseLobby(text: string, defaultTag: string): LobbyParse {
 
   for (const raw of text.split(/[\n,]+/)) {
     // The client writes "Name #TAG"; a space before the # is not part of the name.
-    const line = raw.replace(CHAT_NOISE, "").replace(/\s+#/, "#").trim();
+    const line = raw.replace(CHAT_NOISE, "").trim().replace(AFTER_TAG, "$1").replace(/\s+#/, "#").trim();
     if (!line) continue;
 
     const id = parseRiotIdInput(line, defaultTag);

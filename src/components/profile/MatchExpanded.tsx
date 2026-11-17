@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useDict } from "@/i18n/client";
 import { riotIdToSlug } from "@/lib/riot-id";
 import type { ItemNames, MatchSummary, MatchTimeline, Result } from "@/lib/types";
 import { BuildOrder } from "./BuildOrder";
@@ -26,6 +27,7 @@ export function MatchExpanded({
   assetVersion: string;
   itemNames: ItemNames;
 }) {
+  const t = useDict();
   const [tab, setTab] = useState<Tab>("scoreboard");
   const [load, setLoad] = useState<Load>({ status: "idle" });
 
@@ -33,9 +35,9 @@ export function MatchExpanded({
   const tabs: { id: Tab; label: string }[] = match.remake
     ? []
     : [
-        { id: "scoreboard", label: "Scoreboard" },
-        ...(match.teams.length === 2 ? [{ id: "gold" as const, label: "Gold" }] : []),
-        { id: "build", label: "Build" },
+        { id: "scoreboard", label: t.tabs.scoreboard },
+        ...(match.teams.length === 2 ? [{ id: "gold" as const, label: t.tabs.gold }] : []),
+        { id: "build", label: t.tabs.build },
       ];
 
   async function fetchTimeline() {
@@ -49,7 +51,7 @@ export function MatchExpanded({
       const body = (await res.json()) as Result<MatchTimeline>;
       setLoad(body.ok ? { status: "ready", timeline: body.data } : { status: "error", message: body.error.message });
     } catch {
-      setLoad({ status: "error", message: "Couldn't load the timeline. Check your connection and try again." });
+      setLoad({ status: "error", message: t.tabs.network });
     }
   }
 
@@ -75,30 +77,30 @@ export function MatchExpanded({
           {load.message}
         </p>
         <button type="button" onClick={() => void fetchTimeline()} className="rounded text-accent hover:underline">
-          Try again
+          {t.common.tryAgain}
         </button>
       </div>
     );
   } else {
-    panel = <div className="m-4 h-40 animate-pulse rounded-lg bg-raised" aria-label="Loading the timeline" />;
+    panel = <div className="m-4 h-40 animate-pulse rounded-lg bg-raised" aria-label={t.tabs.loading} />;
   }
 
   return (
     <>
       {tabs.length > 0 && (
-        <div role="tablist" aria-label="Match details" className="flex gap-1 border-b border-edge px-3 pt-2 sm:px-4">
-          {tabs.map((t) => (
+        <div role="tablist" aria-label={t.tabs.label} className="flex gap-1 border-b border-edge px-3 pt-2 sm:px-4">
+          {tabs.map((tabInfo) => (
             <button
-              key={t.id}
+              key={tabInfo.id}
               type="button"
               role="tab"
-              aria-selected={tab === t.id}
-              onClick={() => choose(t.id)}
+              aria-selected={tab === tabInfo.id}
+              onClick={() => choose(tabInfo.id)}
               className={`-mb-px border-b-2 px-3 py-1.5 text-xs font-medium transition-colors ${
-                tab === t.id ? "border-accent text-fg" : "border-transparent text-soft hover:text-fg"
+                tab === tabInfo.id ? "border-accent text-fg" : "border-transparent text-soft hover:text-fg"
               }`}
             >
-              {t.label}
+              {tabInfo.label}
             </button>
           ))}
         </div>

@@ -1,6 +1,9 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { useDict, useLocale } from "@/i18n/client";
+import type { Dict } from "@/i18n/dictionaries";
+import { INTL_LOCALE } from "@/i18n/config";
 import { APEX_FLOOR, bandName } from "@/lib/rank-scale";
 import type { RankHistory } from "@/lib/types";
 
@@ -9,22 +12,30 @@ const W = 300;
 const H = 168;
 const PAD = { top: 12, right: 14, bottom: 22, left: 10 };
 
-const dateFormat = new Intl.DateTimeFormat("en", { month: "short", day: "numeric" });
-const fullDate = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" });
+
 
 /** Gridlines: tier boundaries for a wide range, division boundaries for a narrow one. */
-function gridlines(min: number, max: number): { value: number; label: string }[] {
+function gridlines(min: number, max: number, t: Dict): { value: number; label: string }[] {
   const divisions = max - min < 400;
   const step = divisions ? 100 : 400;
   const out = [];
   for (let v = Math.ceil(min / step) * step; v <= Math.min(max, APEX_FLOOR); v += step) {
-    out.push({ value: v, label: bandName(v, divisions && v < APEX_FLOOR) });
+    out.push({ value: v, label: bandName(v, divisions && v < APEX_FLOOR, t.game.tier) });
   }
   return out;
 }
 
 export function RankHistoryChart({ history }: { history: RankHistory }) {
   const { points, source, queue } = history;
+  const t = useDict();
+  const locale = useLocale();
+  const { dateFormat, fullDate } = useMemo(
+    () => ({
+      dateFormat: new Intl.DateTimeFormat(INTL_LOCALE[locale], { month: "short", day: "numeric" }),
+      fullDate: new Intl.DateTimeFormat(INTL_LOCALE[locale], { month: "short", day: "numeric", year: "numeric" }),
+    }),
+    [locale],
+  );
   const uid = useId();
   const [active, setActive] = useState<number | null>(null);
 
@@ -45,17 +56,14 @@ export function RankHistoryChart({ history }: { history: RankHistory }) {
     const line = coords.map((c, i) => `${i ? "L" : "M"}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join("");
     const base = H - PAD.bottom;
     const area = `${line}L${coords.at(-1)!.x.toFixed(1)},${base}L${coords[0].x.toFixed(1)},${base}Z`;
-    return { coords, line, area, y, grid: gridlines(min, max) };
-  }, [points]);
+    return { coords, line, area, y, grid: gridlines(min, max, t) };
+  }, [points, t]);
 
   if (points.length < 2) {
     return (
       <section className="card p-4">
-        <h2 className="label-caps">LP history</h2>
-        <p className="mt-2 text-sm text-soft">
-          Tracking starts today. Each time this profile is opened, its rank is
-          saved, and the graph fills in from there.
-        </p>
+        <h2 className="label-caps">{t.lp.heading}</h2>
+        <p className="mt-2 text-sm text-soft">{t.lp.startsToday}</p>
       </section>
     );
   }
@@ -78,15 +86,15 @@ export function RankHistoryChart({ history }: { history: RankHistory }) {
   return (
     <section className="card p-4" aria-labelledby={`${uid}-title`}>
       <h2 id={`${uid}-title`} className="label-caps">
-        LP history
+        {t.lp.heading}
       </h2>
       <p className="mt-1 text-xs text-soft">
-        {queue === "RANKED_SOLO_5x5" ? "Solo/Duo" : "Flex"} ·{" "}
+        {queue === "RANKED_SOLO_5x5" ? t.lp.solo : t.lp.flex} ·{" "}
         <span className="font-semibold tabular-nums text-fg">
           {change >= 0 ? "+" : "−"}
           {Math.abs(change)} LP
         </span>{" "}
-        since {dateFormat.format(first.at)}
+        {t.lp.since(dateFormat.format(first.at))}
       </p>
 
       <div className="relative mt-3">
@@ -94,7 +102,7 @@ export function RankHistoryChart({ history }: { history: RankHistory }) {
           viewBox={`0 0 ${W} ${H}`}
           className="block w-full touch-none select-none outline-none"
           role="img"
-          aria-label={`Rank from ${first.label} on ${fullDate.format(first.at)} to ${last.label} today. Use the arrow keys to step through.`}
+          aria-label={t.lp.chartLabel(first.label, fullDate.format(first.at), last.label)}
           tabIndex={0}
           onPointerMove={(e) => setActive(nearest(e.clientX, e.currentTarget.getBoundingClientRect()))}
           onPointerLeave={() => setActive(null)}
@@ -169,7 +177,7 @@ export function RankHistoryChart({ history }: { history: RankHistory }) {
             {dateFormat.format(first.at)}
           </text>
           <text x={W - PAD.right} y={H - 6} textAnchor="end" className="fill-faint font-mono" fontSize="9">
-            Today
+            {t.lp.today}
           </text>
         </svg>
 
@@ -189,12 +197,12 @@ export function RankHistoryChart({ history }: { history: RankHistory }) {
       </div>
 
       <details className="mt-2 text-xs">
-        <summary className="cursor-pointer text-faint hover:text-fg">Show as table</summary>
+        <summary className="cursor-pointer text-faint hover:text-fg">{t.lp.table}</summary>
         <table className="mt-2 w-full font-mono">
           <thead>
             <tr className="text-faint">
-              <th scope="col" className="py-1 text-left font-normal">Date</th>
-              <th scope="col" className="py-1 text-right font-normal">Rank</th>
+              <th scope="col" className="py-1 text-left font-normal">{t.lp.date}</th>
+              <th scope="col" className="py-1 text-right font-normal">{t.live.rank}</th>
             </tr>
           </thead>
           <tbody>
@@ -210,7 +218,7 @@ export function RankHistoryChart({ history }: { history: RankHistory }) {
 
       {source === "live" && (
         <p className="mt-2 text-[11px] text-faint">
-          Recorded each time this profile is opened.
+          {t.lp.recorded}
         </p>
       )}
     </section>

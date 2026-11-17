@@ -49,3 +49,14 @@ describe("parseLobby", () => {
     expect(parseLobby(lobbyToQuery(players), "EUW").players).toEqual(players);
   });
 });
+
+describe("parseLobby in other languages", () => {
+  it("reads Turkish join messages and drops any chat text after the tag", () => {
+    const text = "Kaori #EUW33 lobiye katıldı.\nAyşe Yılmaz #TR1 odaya katıldı\nMid Gap #EUW something else";
+    expect(parseLobby(text, "EUW").players).toEqual([
+      { gameName: "Kaori", tagLine: "EUW33" },
+      { gameName: "Ayşe Yılmaz", tagLine: "TR1" },
+      { gameName: "Mid Gap", tagLine: "EUW" },
+    ]);
+  });
+});

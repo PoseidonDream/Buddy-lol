@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { Locale } from "@/i18n/config";
+
 import { getStaticData } from "./ddragon";
 import { demoMatches } from "./demo/generate";
 import { demoLadder } from "./demo/ladder";
@@ -148,9 +150,9 @@ async function source(): Promise<{ store: Store; demo: boolean }> {
 
 // ---------------------------------------------------------------- queries
 
-export async function getChampionTable(requestedPatch?: string): Promise<ChampionTable> {
+export async function getChampionTable(requestedPatch?: string, locale: Locale = "en"): Promise<ChampionTable> {
   const { store, demo } = await source();
-  const [patches, staticData] = await Promise.all([store.patches(), getStaticData()]);
+  const [patches, staticData] = await Promise.all([store.patches(), getStaticData(locale)]);
   const current = patches.find((p) => p.patch === requestedPatch) ?? patches[0];
   const base = {
     source: demo ? ("demo" as const) : ("live" as const),
@@ -193,9 +195,10 @@ export async function getChampionPage(
   championKey: string,
   requestedPatch?: string,
   requestedPosition?: string,
+  locale: Locale = "en",
 ): Promise<ChampionPage | null> {
   const { store, demo } = await source();
-  const [patches, staticData] = await Promise.all([store.patches(), getStaticData()]);
+  const [patches, staticData] = await Promise.all([store.patches(), getStaticData(locale)]);
   const known = staticData.championByKey(championKey);
   if (!known) return null;
 

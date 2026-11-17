@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useMemo, useRef, useState } from "react";
+import { useDict } from "@/i18n/client";
 import { formatCompact } from "@/lib/format";
 import type { MatchSummary, MatchTimeline, ObjectiveKind } from "@/lib/types";
 
@@ -9,18 +10,20 @@ const H = 210;
 const PAD = { left: 44, right: 12, top: 22, bottom: 24 };
 const STEPS = [500, 1000, 2000, 2500, 5000, 10_000, 20_000];
 
-const MARKS: Partial<Record<ObjectiveKind, { label: string; path: (x: number, y: number) => string }>> = {
-  dragon: { label: "Dragon", path: (x, y) => `M${x - 4},${y}a4,4 0 1,0 8,0a4,4 0 1,0 -8,0` },
-  baron: { label: "Baron", path: (x, y) => `M${x},${y - 5}L${x + 5},${y}L${x},${y + 5}L${x - 5},${y}Z` },
-  herald: { label: "Herald", path: (x, y) => `M${x},${y - 5}L${x + 5},${y + 4}L${x - 5},${y + 4}Z` },
-  grubs: { label: "Void grubs", path: (x, y) => `M${x},${y - 5}L${x + 5},${y + 4}L${x - 5},${y + 4}Z` },
-  atakhan: { label: "Atakhan", path: (x, y) => `M${x},${y - 5}L${x + 5},${y + 4}L${x - 5},${y + 4}Z` },
+const triangle = (x: number, y: number) => `M${x},${y - 5}L${x + 5},${y + 4}L${x - 5},${y + 4}Z`;
+const MARKS: Partial<Record<ObjectiveKind, (x: number, y: number) => string>> = {
+  dragon: (x, y) => `M${x - 4},${y}a4,4 0 1,0 8,0a4,4 0 1,0 -8,0`,
+  baron: (x, y) => `M${x},${y - 5}L${x + 5},${y}L${x},${y + 5}L${x - 5},${y}Z`,
+  herald: triangle,
+  grubs: triangle,
+  atakhan: triangle,
 };
 
 const signed = (n: number) => `${n > 0 ? "+" : n < 0 ? "−" : "±"}${formatCompact(Math.abs(n))}`;
 
 /** The gold lead of the player's team over the enemy team, minute by minute. */
 export function GoldChart({ match, timeline }: { match: MatchSummary; timeline: MatchTimeline }) {
+  const t = useDict();
   const uid = useId();
   const svg = useRef<SVGSVGElement>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -44,7 +47,7 @@ export function GoldChart({ match, timeline }: { match: MatchSummary; timeline: 
     return { lead: mine.map((a, i) => a - theirs[i]), mine, theirs };
   }, [match, timeline]);
 
-  if (lead.length < 2) return <p className="p-4 text-sm text-soft">This game was too short for a gold graph.</p>;
+  if (lead.length < 2) return <p className="p-4 text-sm text-soft">{t.gold.tooShort}</p>;
 
   const peak = Math.max(1, ...lead.map(Math.abs));
   const step = STEPS.find((s) => peak / s <= 3) ?? 50_000;
@@ -74,10 +77,11 @@ export function GoldChart({ match, timeline }: { match: MatchSummary; timeline: 
   return (
     <figure className="p-3 sm:p-4">
       <figcaption className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <span className="text-sm font-medium">Gold lead of {match.me.gameName}&apos;s team</span>
+        <span className="text-sm font-medium">{t.gold.title(match.me.gameName)}</span>
         <span className="text-xs text-faint">
-          Biggest lead <span className="font-mono text-fg">{signed(lead[best])}</span> at {best} min · biggest deficit{" "}
-          <span className="font-mono text-fg">{signed(lead[worst])}</span> at {worst} min
+          {t.gold.biggestLead} <span className="font-mono text-fg">{signed(lead[best])}</span> · {t.time.minutes(best)} ·{" "}
+          {t.gold.biggestDeficit} <span className="font-mono text-fg">{signed(lead[worst])}</span> ·{" "}
+          {t.time.minutes(worst)}
         </span>
       </figcaption>
 
@@ -93,8 +97,7 @@ export function GoldChart({ match, timeline }: { match: MatchSummary; timeline: 
           onPointerLeave={() => setHover(null)}
         >
           <desc id={`${uid}-desc`}>
-            Gold lead by minute. Above the middle line the team was ahead, below it behind. Ends at{" "}
-            {signed(lead.at(-1)!)}.
+            {t.gold.description(signed(lead.at(-1)!))}
           </desc>
           <defs>
             <clipPath id={`${uid}-above`}>
@@ -139,12 +142,12 @@ export function GoldChart({ match, timeline }: { match: MatchSummary; timeline: 
             return (
               <path
                 key={i}
-                d={MARKS[o.kind]!.path(mx, my)}
+                d={MARKS[o.kind]!(mx, my)}
                 className={`${o.teamId === match.me.teamId ? "fill-win" : "fill-loss"} stroke-panel`}
                 strokeWidth={1.5}
               >
                 <title>
-                  {MARKS[o.kind]!.label} · {o.teamId === match.me.teamId ? "your team" : "enemy team"} ·{" "}
+                  {t.game.objective[o.kind]} · {o.teamId === match.me.teamId ? t.gold.yourTeam : t.gold.enemyTeam} ·{" "}
                   {Math.floor(o.at / 60)}:{String(o.at % 60).padStart(2, "0")}
                 </title>
               </path>
@@ -171,27 +174,27 @@ export function GoldChart({ match, timeline }: { match: MatchSummary; timeline: 
             style={{ left: `${Math.min(85, Math.max(15, (x(hover) / W) * 100))}%` }}
           >
             <p className="font-medium">
-              {hover} min ·{" "}
+              {t.time.minutes(hover)} ·{" "}
               <span className="font-mono">{signed(lead[hover])}</span>
             </p>
             <p className="font-mono text-faint">
-              {formatCompact(mine[hover])} vs {formatCompact(theirs[hover])}
+              {t.gold.versus(formatCompact(mine[hover]), formatCompact(theirs[hover]))}
             </p>
           </div>
         )}
       </div>
 
       <p className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-faint">
-        <span>Top row: your team&apos;s objectives · bottom row: the enemy&apos;s</span>
-        <span>● dragon ◆ baron ▲ herald, grubs or Atakhan</span>
+        <span>{t.gold.rows}</span>
+        <span>{t.gold.legend}</span>
       </p>
 
       <table className="sr-only">
-        <caption>Gold lead by minute</caption>
+        <caption>{t.gold.tableCaption}</caption>
         <thead>
           <tr>
-            <th scope="col">Minute</th>
-            <th scope="col">Lead</th>
+            <th scope="col">{t.gold.minute}</th>
+            <th scope="col">{t.gold.lead}</th>
           </tr>
         </thead>
         <tbody>

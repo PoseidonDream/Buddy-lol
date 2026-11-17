@@ -10,28 +10,30 @@ import { RankHistoryChart } from "@/components/profile/RankHistoryChart";
 import { ProfileProblem } from "@/components/profile/ProfileProblem";
 import { ProfileSkeleton } from "@/components/profile/ProfileSkeleton";
 import { ProfileView } from "@/components/profile/ProfileView";
+import { getDict, getLocale } from "@/i18n/server";
 import { getLiveGame } from "@/lib/live";
 import { currentWriter } from "@/lib/notes-auth";
 import { getStore } from "@/lib/store";
 import type { NoteSummary } from "@/lib/store/types";
 import { MATCH_PAGE_SIZE, getProfile } from "@/lib/profile";
 import { getRankHistory } from "@/lib/rank-history";
-import { LIMIT_MESSAGE, clientIp, takeLookups } from "@/lib/rate-limit";
+import { clientIp, takeLookups } from "@/lib/rate-limit";
 import { recordProfile } from "@/lib/record";
 import { getRegion } from "@/lib/regions";
 import { formatRiotId, riotIdFromSlug } from "@/lib/riot-id";
 import type { Profile } from "@/lib/types";
 
-type Props = PageProps<"/summoner/[region]/[riotId]">;
+type Props = PageProps<"/[lang]/summoner/[region]/[riotId]">;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { region, riotId } = await params;
   const id = riotIdFromSlug(riotId);
   const server = getRegion(region);
-  if (!id || !server) return { title: "Player not found" };
+  const t = await getDict();
+  if (!id || !server) return { title: t.errors.titles.not_found };
   return {
     title: `${formatRiotId(id)} (${server.label})`,
-    description: `Rank, match history and champion stats for ${formatRiotId(id)} on ${server.name}.`,
+    description: t.profile.metaDescription(formatRiotId(id), t.game.regionName(server.slug)),
   };
 }
 
@@ -63,12 +65,13 @@ async function ProfileSection({ params }: Pick<Props, "params">) {
   if (!allowed.ok) {
     return (
       <main className="mx-auto max-w-6xl px-4 py-16">
-        <ProfileProblem error={{ kind: "rate_limited" as const, message: LIMIT_MESSAGE }} />
+        <ProfileProblem error={{ kind: "rate_limited" as const, message: (await getDict()).errors.limit }} />
       </main>
     );
   }
 
-  const result = await getProfile(region, riotId);
+  const locale = await getLocale();
+  const result = await getProfile(region, riotId, undefined, locale);
 
   if (!result.ok) {
     return (
@@ -114,12 +117,12 @@ async function ProfileSection({ params }: Pick<Props, "params">) {
 }
 
 async function RankHistorySection({ profile }: { profile: Profile }) {
-  const history = await getRankHistory(profile);
+  const history = await getRankHistory(profile, await getLocale());
   return history ? <RankHistoryChart history={history} /> : null;
 }
 
 async function LiveGame({ profile }: { profile: Profile }) {
-  const game = await getLiveGame(profile);
+  const game = await getLiveGame(profile, await getLocale());
   if (!game) return null;
 
   // People who have unlocked notes see which players they've noted before.

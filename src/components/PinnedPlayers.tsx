@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { connection } from "next/server";
 import { championIcon, profileIcon } from "@/lib/assets";
+import { getDict, getLocale } from "@/i18n/server";
+import type { Dict } from "@/i18n/dictionaries";
 import { getStaticData } from "@/lib/ddragon";
 import { initials } from "@/lib/format";
 import { currentWriter, notesEnabled } from "@/lib/notes-auth";
@@ -23,29 +25,28 @@ export async function PinnedPlayers() {
   let now = 0;
   let failed = false;
   try {
-    ({ cards, at: now } = await getPinnedCards());
+    ({ cards, at: now } = await getPinnedCards(await getLocale()));
   } catch (err) {
     console.warn("Could not load pinned players.", err);
     failed = true;
   }
   const { version } = await getStaticData();
+  const t = await getDict();
 
   return (
     <section aria-labelledby="pinned-heading">
       <h2 id="pinned-heading" className="label-caps mb-3">
-        Pinned players
+        {t.pinned.heading}
       </h2>
       {failed ? (
-        <p className="text-sm text-loss">Pinned players couldn&apos;t be loaded right now.</p>
+        <p className="text-sm text-loss">{t.pinned.failed}</p>
       ) : cards.length === 0 ? (
-        <p className="text-sm text-soft">
-          Pin players from the notes box on their profile to keep an eye on them here.
-        </p>
+        <p className="text-sm text-soft">{t.pinned.empty}</p>
       ) : (
         <ul className="grid gap-3 sm:grid-cols-2">
           {cards.map((card) => (
             <li key={card.puuid}>
-              <Card card={card} version={version} now={now} />
+              <Card card={card} version={version} now={now} t={t} />
             </li>
           ))}
         </ul>
@@ -54,7 +55,7 @@ export async function PinnedPlayers() {
   );
 }
 
-function Card({ card, version, now }: { card: PinnedCard; version: string; now: number }) {
+function Card({ card, version, now, t }: { card: PinnedCard; version: string; now: number; t: Dict }) {
   const { rank, today, live } = card;
   const minutes = live?.startedAt ? Math.max(0, Math.floor((now - live.startedAt) / 60_000)) : null;
   const region = getRegion(card.regionSlug);
@@ -72,7 +73,7 @@ function Card({ card, version, now }: { card: PinnedCard; version: string; now: 
           className="size-12 rounded-xl"
         />
         {live && (
-          <span className="absolute -right-1 -top-1 flex size-3.5" title="In a game now">
+          <span className="absolute -right-1 -top-1 flex size-3.5" title={t.pinned.inGame}>
             <span className="absolute inline-flex size-full animate-ping rounded-full bg-loss opacity-60 motion-reduce:hidden" />
             <span className="relative inline-flex size-3.5 rounded-full border-2 border-panel bg-loss" />
           </span>
@@ -91,18 +92,18 @@ function Card({ card, version, now }: { card: PinnedCard; version: string; now: 
           {rank ? (
             <>
               <TierEmblem tier={rank.tier} size={18} />
-              <span>{formatRank(rank)}</span>
-              {rank.queue === "RANKED_FLEX_SR" && <span className="text-xs text-faint">flex</span>}
+              <span>{formatRank(rank, t.game.tier)}</span>
+              {rank.queue === "RANKED_FLEX_SR" && <span className="text-xs text-faint">{t.pinned.flex}</span>}
             </>
           ) : (
-            <span className="text-faint">{card.failed ? "Rank unavailable" : "Unranked"}</span>
+            <span className="text-faint">{card.failed ? t.pinned.rankUnavailable : t.pinned.unranked}</span>
           )}
         </div>
-        <Today today={today} />
+        <Today today={today} t={t} />
         {live && (
           <p className="mt-1 truncate text-xs font-medium text-loss">
-            In game · {live.championName}
-            {minutes !== null && ` · ${minutes} min`}
+            {t.pinned.playing(live.championName)}
+            {minutes !== null && ` · ${t.time.minutes(minutes)}`}
           </p>
         )}
       </div>
@@ -119,11 +120,11 @@ function Card({ card, version, now }: { card: PinnedCard; version: string; now: 
   );
 }
 
-function Today({ today }: { today: PinnedCard["today"] }) {
+function Today({ today, t }: { today: PinnedCard["today"]; t: Dict }) {
   if (!today) return null;
   const games = today.wins + today.losses;
   if (games === 0 && today.lp === 0) {
-    return <p className="mt-1 text-xs text-faint">No ranked games in the last 24h</p>;
+    return <p className="mt-1 text-xs text-faint">{t.pinned.noGames}</p>;
   }
   const tone = today.lp > 0 ? "text-win" : today.lp < 0 ? "text-loss" : "text-soft";
   return (
@@ -135,10 +136,10 @@ function Today({ today }: { today: PinnedCard["today"] }) {
       {games > 0 && (
         <span className="font-mono">
           {" "}
-          · {today.wins}W {today.losses}L
+          · {t.game.record(today.wins, today.losses)}
         </span>
       )}{" "}
-      in the last 24h
+      {t.pinned.last24h}
     </p>
   );
 }

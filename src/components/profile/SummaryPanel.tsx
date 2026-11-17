@@ -1,5 +1,7 @@
-import { formatKda, kdaRatio, percent } from "@/lib/format";
-import { POSITION_NAMES } from "@/lib/game-data";
+"use client";
+
+import { useDict } from "@/i18n/client";
+import { kdaRatio, percent } from "@/lib/format";
 import type { Outcome, Summary } from "@/lib/stats";
 
 export function kdaTone(ratio: number | null): string {
@@ -9,6 +11,7 @@ export function kdaTone(ratio: number | null): string {
 }
 
 function WinRing({ wins, games }: { wins: number; games: number }) {
+  const t = useDict();
   const rate = percent(wins, games);
   const r = 34;
   const c = 2 * Math.PI * r;
@@ -28,7 +31,7 @@ function WinRing({ wins, games }: { wins: number; games: number }) {
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
         <span className="text-xl font-semibold tabular-nums">{rate}%</span>
-        <span className="font-mono text-[10px] text-faint">WIN RATE</span>
+        <span className="font-mono text-[10px] uppercase text-faint">{t.summary.ringLabel}</span>
       </div>
     </div>
   );
@@ -43,23 +46,16 @@ function Stat({ label, value, tone = "" }: { label: string; value: string; tone?
   );
 }
 
-const FORM_STYLE: Record<Outcome, { tile: string; label: string }> = {
-  win: { tile: "bg-win", label: "Win" },
-  loss: { tile: "bg-loss", label: "Loss" },
-  remake: { tile: "bg-faint/60", label: "Remake" },
-};
+const FORM_TILE: Record<Outcome, string> = { win: "bg-win", loss: "bg-loss", remake: "bg-faint/60" };
 
 /** One small tile per game, most recent first. */
 function FormStrip({ form }: { form: Outcome[] }) {
+  const t = useDict();
   return (
-    <ol className="mt-2 flex max-w-44 flex-wrap gap-1" aria-label="Results, most recent first">
+    <ol className="mt-2 flex max-w-44 flex-wrap gap-1" aria-label={t.summary.form}>
       {form.map((outcome, i) => (
-        <li
-          key={i}
-          title={FORM_STYLE[outcome].label}
-          className={`size-2.5 rounded-[3px] ${FORM_STYLE[outcome].tile}`}
-        >
-          <span className="sr-only">{FORM_STYLE[outcome].label}</span>
+        <li key={i} title={t.summary.outcome[outcome]} className={`size-2.5 rounded-[3px] ${FORM_TILE[outcome]}`}>
+          <span className="sr-only">{t.summary.outcome[outcome]}</span>
         </li>
       ))}
     </ol>
@@ -76,11 +72,12 @@ export function SummaryPanel({
   /** More games for this view are on their way. */
   loading?: boolean;
 }) {
+  const t = useDict();
   const { games, wins, losses } = summary;
   if (games === 0) {
     return (
       <section className="card p-6 text-center text-soft">
-        {loading ? "Loading games…" : "No games found in this queue."}
+        {loading ? t.summary.loading : t.summary.none}
       </section>
     );
   }
@@ -96,23 +93,23 @@ export function SummaryPanel({
         <div className="flex items-center gap-4">
           <WinRing wins={wins} games={games} />
           <div>
-            <p className="label-caps">{games === 1 ? "Last game" : `Last ${games} games`}</p>
+            <p className="label-caps">{t.summary.lastGames(games)}</p>
             <p className="mt-1 text-lg font-semibold tabular-nums">
-              <span className="text-win">{wins}W</span>{" "}
-              <span className="text-loss">{losses}L</span>
+              <span className="text-win">{t.summary.wins(wins)}</span>{" "}
+              <span className="text-loss">{t.summary.losses(losses)}</span>
             </p>
             <FormStrip form={form} />
           </div>
         </div>
 
         <dl className="grid w-full grid-cols-2 gap-x-8 gap-y-4 whitespace-nowrap sm:flex sm:w-auto sm:flex-1 sm:justify-between">
-          <Stat label="KDA" value={formatKda(ratio)} tone={kdaTone(ratio)} />
+          <Stat label="KDA" value={t.game.kda(ratio)} tone={kdaTone(ratio)} />
           <Stat
             label="K / D / A"
             value={`${per(summary.kills)} / ${per(summary.deaths)} / ${per(summary.assists)}`}
           />
-          <Stat label="Kill part." value={`${summary.killParticipation}%`} />
-          <Stat label="CS / min" value={summary.csPerMin.toFixed(1)} />
+          <Stat label={t.summary.killParticipation} value={`${summary.killParticipation}%`} />
+          <Stat label={t.summary.csPerMin} value={summary.csPerMin.toFixed(1)} />
         </dl>
       </div>
 
@@ -122,8 +119,8 @@ export function SummaryPanel({
             <li key={role.position}>
               <div className="flex items-baseline justify-between gap-1">
                 <span className="label-caps">
-                  <span className="sm:hidden">{POSITION_NAMES[role.position].slice(0, 3)}</span>
-                  <span className="max-sm:hidden">{POSITION_NAMES[role.position]}</span>
+                  <span className="sm:hidden">{t.game.position(role.position).slice(0, 3)}</span>
+                  <span className="max-sm:hidden">{t.game.position(role.position)}</span>
                 </span>
                 <span className="font-mono text-xs tabular-nums text-soft">{role.games}</span>
               </div>

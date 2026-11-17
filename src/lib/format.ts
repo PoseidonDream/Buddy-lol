@@ -1,28 +1,49 @@
-export function formatDuration(seconds: number): string {
+/** The words relative times and durations are written with, per language. */
+export interface TimeLabels {
+  justNow: string;
+  minutesAgo(n: number): string;
+  hoursAgo(n: number): string;
+  daysAgo(n: number): string;
+  monthsAgo(n: number): string;
+  yearsAgo(n: number): string;
+  duration(minutes: number, seconds: number): string;
+  longDuration(hours: number, minutes: number): string;
+}
+
+const ENGLISH_TIME: TimeLabels = {
+  justNow: "just now",
+  minutesAgo: (n) => `${n}m ago`,
+  hoursAgo: (n) => `${n}h ago`,
+  daysAgo: (n) => `${n}d ago`,
+  monthsAgo: (n) => `${n}mo ago`,
+  yearsAgo: (n) => `${n}y ago`,
+  duration: (m, s) => `${m}m ${String(s).padStart(2, "0")}s`,
+  longDuration: (h, m) => `${h}h ${String(m).padStart(2, "0")}m`,
+};
+
+export function formatDuration(seconds: number, labels: TimeLabels = ENGLISH_TIME): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
-  if (m >= 60) {
-    return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m`;
-  }
-  return `${m}m ${String(s).padStart(2, "0")}s`;
+  if (m >= 60) return labels.longDuration(Math.floor(m / 60), m % 60);
+  return labels.duration(m, s);
 }
 
 /**
  * Relative time against an explicit `now`, so the server and the browser
  * render the same string.
  */
-export function timeAgo(timestamp: number, now: number): string {
+export function timeAgo(timestamp: number, now: number, labels: TimeLabels = ENGLISH_TIME): string {
   const sec = Math.max(0, Math.floor((now - timestamp) / 1000));
-  if (sec < 60) return "just now";
+  if (sec < 60) return labels.justNow;
   const min = Math.floor(sec / 60);
-  if (min < 60) return `${min}m ago`;
+  if (min < 60) return labels.minutesAgo(min);
   const hours = Math.floor(min / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return labels.hoursAgo(hours);
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
+  if (days < 30) return labels.daysAgo(days);
   const months = Math.floor(days / 30);
-  if (months < 12) return `${months}mo ago`;
-  return `${Math.floor(months / 12)}y ago`;
+  if (months < 12) return labels.monthsAgo(months);
+  return labels.yearsAgo(Math.floor(months / 12));
 }
 
 /** (K + A) / D. `null` when there were no deaths (a "perfect" KDA). */

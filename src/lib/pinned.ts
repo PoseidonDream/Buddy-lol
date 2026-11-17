@@ -1,5 +1,7 @@
 import "server-only";
 
+import type { Locale } from "@/i18n/config";
+
 import { getStaticData } from "./ddragon";
 import { demoLiveGame, demoRanked } from "./demo/generate";
 import { rankValue } from "./rank-scale";
@@ -66,14 +68,14 @@ export function changeSince(
   };
 }
 
-async function liveCard(pin: PinnedPlayer, now: number): Promise<{ card: PinnedCard; snapshots: RankSnapshot[] }> {
+async function liveCard(pin: PinnedPlayer, now: number, locale: Locale): Promise<{ card: PinnedCard; snapshots: RankSnapshot[] }> {
   const region = getRegion(pin.regionSlug)!;
   const [account, summoner, entries, game, staticData] = await Promise.allSettled([
     getAccountByPuuid(region, pin.puuid),
     getSummoner(region, pin.puuid),
     getLeagueEntries(region, pin.puuid),
     getActiveGame(region, pin.puuid),
-    getStaticData(),
+    getStaticData(locale),
   ]);
   const value = <T,>(r: PromiseSettledResult<T>): T | null => (r.status === "fulfilled" ? r.value : null);
 
@@ -157,13 +159,13 @@ function demoCard(pin: PinnedPlayer, now: number): PinnedCard {
  * they're in a game. Also stores each rank it reads, which is what makes the
  * 24-hour change work for players nobody opens the profile of.
  */
-export async function getPinnedCards(): Promise<{ cards: PinnedCard[]; at: number }> {
+export async function getPinnedCards(locale: Locale = "en"): Promise<{ cards: PinnedCard[]; at: number }> {
   const at = Date.now();
   const store = getStore();
   const pins = (await store.listPinned()).filter((p) => getRegion(p.regionSlug)).slice(0, MAX_PINNED);
   if (riotApiKey() === null) return { cards: pins.map((p) => demoCard(p, at)), at };
 
-  const results = await Promise.all(pins.map((p) => liveCard(p, at)));
+  const results = await Promise.all(pins.map((p) => liveCard(p, at, locale)));
   await store.recordRanks(results.flatMap((r) => r.snapshots)).catch((err) => {
     console.warn("Could not record pinned players' ranks.", err);
   });

@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { lockNotes } from "@/app/actions/notes";
+import { getDict, getLocale } from "@/i18n/server";
+import { INTL_LOCALE } from "@/i18n/config";
 import { togglePin } from "@/app/actions/pins";
 import { MAX_PINNED } from "@/lib/pinned";
 import { currentWriter, notesEnabled } from "@/lib/notes-auth";
@@ -8,7 +11,6 @@ import type { Profile } from "@/lib/types";
 import { AddNoteForm, DeleteNoteButton, UnlockNotesForm } from "./NoteForms";
 import { TagChip } from "./TagChip";
 
-const when = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", year: "numeric" });
 
 /**
  * Private notes on this player. Hidden entirely unless the site has a
@@ -16,13 +18,14 @@ const when = new Intl.DateTimeFormat("en", { month: "short", day: "numeric", yea
  */
 export async function NotesPanel({ profile }: { profile: Profile }) {
   if (!notesEnabled()) return null;
-  const writer = await currentWriter();
+  const [writer, t, locale] = await Promise.all([currentWriter(), getDict(), getLocale()]);
+  const when = new Intl.DateTimeFormat(INTL_LOCALE[locale], { month: "short", day: "numeric", year: "numeric" });
 
   if (!writer) {
     return (
       <section className="card p-4">
-        <h2 className="label-caps">Notes</h2>
-        <p className="mt-2 text-sm text-soft">Private notes on players, for you and your friends.</p>
+        <h2 className="label-caps">{t.notes.heading}</h2>
+        <p className="mt-2 text-sm text-soft">{t.notes.invite}</p>
         <UnlockNotesForm />
       </section>
     );
@@ -44,20 +47,20 @@ export async function NotesPanel({ profile }: { profile: Profile }) {
     <section className="card p-4" aria-labelledby="notes-heading">
       <div className="flex items-baseline justify-between gap-3">
         <h2 id="notes-heading" className="label-caps">
-          Notes {notes.length > 0 && <span className="text-gold">· {notes.length}</span>}
+          {t.notes.heading} {notes.length > 0 && <span className="text-gold">· {notes.length}</span>}
         </h2>
         <form action={lockNotes} className="text-xs text-faint">
-          <a href="/feedback" className="rounded hover:text-fg hover:underline">
-            Inbox
-          </a>{" "}
+          <Link href="/feedback" className="rounded hover:text-fg hover:underline">
+            {t.notes.inbox}
+          </Link>{" "}
           · {writer} ·{" "}
           <button type="submit" className="rounded hover:text-fg hover:underline">
-            Lock
+            {t.notes.lock}
           </button>
         </form>
       </div>
 
-      {failed && <p className="mt-2 text-sm text-loss">Notes couldn&apos;t be loaded right now.</p>}
+      {failed && <p className="mt-2 text-sm text-loss">{t.notes.failed}</p>}
 
       {!failed && (pinned || pins.length < MAX_PINNED) && (
         <form action={togglePin} className="mt-2">
@@ -77,7 +80,7 @@ export async function NotesPanel({ profile }: { profile: Profile }) {
             <svg viewBox="0 0 24 24" className="size-3.5" fill={pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" aria-hidden="true">
               <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9L12 3Z" strokeLinejoin="round" />
             </svg>
-            {pinned ? "Pinned to home page" : "Pin to home page"}
+            {pinned ? t.notes.pinned : t.notes.pin}
           </button>
         </form>
       )}
@@ -97,7 +100,7 @@ export async function NotesPanel({ profile }: { profile: Profile }) {
               <div className="mt-2 flex items-center justify-between gap-2 text-xs text-faint">
                 <span>
                   {note.author} · {when.format(note.at)}
-                  {note.riotId !== riotId && ` · as ${note.riotId}`}
+                  {note.riotId !== riotId && ` · ${t.notes.renamed(note.riotId)}`}
                 </span>
                 <DeleteNoteButton id={note.id} />
               </div>

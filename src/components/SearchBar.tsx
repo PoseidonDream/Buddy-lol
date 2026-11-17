@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useId, useState, useTransition } from "react";
+import { useDict } from "@/i18n/client";
 import { DEFAULT_REGION, REGIONS, getRegion } from "@/lib/regions";
 import { parseRiotIdInput, profilePath } from "@/lib/riot-id";
 import { storeRegion, useStoredRegion } from "@/lib/storage";
@@ -13,6 +14,7 @@ export function SearchBar({
   size?: "sm" | "lg";
   autoFocus?: boolean;
 }) {
+  const t = useDict();
   const router = useRouter();
   // Next keeps recently visited pages mounted but hidden, so a fixed id could
   // appear twice in the document.
@@ -43,14 +45,14 @@ export function SearchBar({
   const height = large ? "h-14" : "h-10";
 
   return (
-    <form onSubmit={submit} role="search" noValidate>
+    <form onSubmit={submit} role="search" aria-label={t.search.label} noValidate>
       <div
         className={`flex ${height} items-stretch rounded-xl border bg-panel transition-colors focus-within:border-accent ${
           error ? "border-loss" : "border-edge"
         }`}
       >
         <label className="sr-only" htmlFor={regionId}>
-          Region
+          {t.search.region}
         </label>
         <select
           id={regionId}
@@ -61,7 +63,7 @@ export function SearchBar({
           }`}
         >
           {REGIONS.map((r) => (
-            <option key={r.slug} value={r.slug} title={r.name}>
+            <option key={r.slug} value={r.slug} title={t.game.regionName(r.slug)}>
               {r.label}
             </option>
           ))}
@@ -77,7 +79,7 @@ export function SearchBar({
             setValue(e.target.value);
             setError(false);
           }}
-          placeholder={`Game name #${region.defaultTag}`}
+          placeholder={t.search.placeholder(region.defaultTag)}
           autoFocus={autoFocus}
           autoComplete="off"
           autoCapitalize="off"
@@ -96,12 +98,14 @@ export function SearchBar({
             large ? "px-5 text-base" : "px-3 text-sm"
           }`}
         >
-          {pending ? "Searching…" : "Search"}
+          {pending ? t.search.searching : t.search.submit}
         </button>
       </div>
       {error && (
         <p id={errorId} role="alert" className="mt-2 text-sm text-loss">
-          Enter a Riot ID like <span className="font-mono">Name#{region.defaultTag}</span>.
+          {t.search.invalidBefore}
+          <span className="font-mono">{t.search.invalidExample(region.defaultTag)}</span>
+          {t.search.invalidAfter}
         </p>
       )}
     </form>

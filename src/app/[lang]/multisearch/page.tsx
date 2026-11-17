@@ -8,14 +8,10 @@ import { MultiSearchForm } from "@/components/multi/MultiSearchForm";
 import { PlayerCard, PlayerCardProblem, PlayerCardSkeleton } from "@/components/multi/PlayerCard";
 import { parseLobby } from "@/lib/lobby";
 import { getProfile, isDemoMode } from "@/lib/profile";
-import { LIMIT_MESSAGE, clientIp, takeLookups } from "@/lib/rate-limit";
+import { getDict, getLocale } from "@/i18n/server";
+import { clientIp, takeLookups } from "@/lib/rate-limit";
 import { DEFAULT_REGION, getRegion } from "@/lib/regions";
 import { riotIdToSlug, type RiotId } from "@/lib/riot-id";
-
-export const metadata: Metadata = {
-  title: "Multi-search",
-  description: "Look up a whole lobby of League of Legends players at once.",
-};
 
 /**
  * Each card shows this many recent games. Kept small because a lobby of five
@@ -23,7 +19,12 @@ export const metadata: Metadata = {
  */
 const CARD_MATCHES = 5;
 
-type Props = PageProps<"/multisearch">;
+type Props = PageProps<"/[lang]/multisearch">;
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getDict();
+  return { title: t.multi.title, description: t.multi.metaDescription };
+}
 
 export default function MultiSearchPage({ searchParams }: Props) {
   return (
@@ -45,16 +46,14 @@ async function Content({ searchParams }: Pick<Props, "searchParams">) {
   const text = typeof query.q === "string" ? query.q : "";
   const { players } = parseLobby(text, region.defaultTag);
   const demo = isDemoMode();
+  const t = await getDict();
 
   return (
     <>
       {demo && <DemoBanner />}
       <main className="mx-auto max-w-6xl px-4 py-8">
-        <h1 className="text-3xl font-semibold tracking-tight">Multi-search</h1>
-        <p className="mt-2 max-w-2xl text-soft">
-          See your whole lobby at once. Copy the join messages from the lobby or
-          champion select chat and paste them here.
-        </p>
+        <h1 className="text-3xl font-semibold tracking-tight">{t.multi.title}</h1>
+        <p className="mt-2 max-w-2xl text-soft">{t.multi.intro}</p>
 
         <div className="mt-6 max-w-2xl">
           <MultiSearchForm
@@ -83,8 +82,14 @@ async function Content({ searchParams }: Pick<Props, "searchParams">) {
 async function Card({ regionSlug, id }: { regionSlug: string; id: RiotId }) {
   const allowed = await takeLookups(clientIp(await headers()));
   if (!allowed.ok) {
-    return <PlayerCardProblem id={id} error={{ kind: "rate_limited" as const, message: LIMIT_MESSAGE }} />;
+    const message = (await getDict()).errors.limit;
+    return <PlayerCardProblem id={id} error={{ kind: "rate_limited" as const, message }} />;
   }
-  const result = await getProfile(regionSlug, riotIdToSlug(id), { matches: CARD_MATCHES, mastery: 0 });
+  const result = await getProfile(
+    regionSlug,
+    riotIdToSlug(id),
+    { matches: CARD_MATCHES, mastery: 0 },
+    await getLocale(),
+  );
   return result.ok ? <PlayerCard profile={result.data} /> : <PlayerCardProblem id={id} error={result.error} />;
 }
