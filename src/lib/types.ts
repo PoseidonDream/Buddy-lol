@@ -112,6 +112,34 @@ export interface MatchSummary {
   teams: TeamSummary[];
 }
 
+export type ApexTier = "challenger" | "grandmaster" | "master";
+
+export interface LadderEntry {
+  /** 1 for the top of the ladder. */
+  position: number;
+  puuid: string;
+  /** `null` when the name could not be looked up (usually a rate limit). */
+  gameName: string | null;
+  tagLine: string | null;
+  lp: number;
+  wins: number;
+  losses: number;
+  hotStreak: boolean;
+}
+
+export interface LadderPage {
+  source: "live" | "demo";
+  regionSlug: string;
+  tier: ApexTier;
+  queue: RankedQueue;
+  /** 1-based. */
+  page: number;
+  pageSize: number;
+  /** Players in this tier. */
+  total: number;
+  entries: LadderEntry[];
+}
+
 /** A player in a game that is still being played. */
 export interface LivePlayer {
   /** Missing when the player hides their identity from spectators. */

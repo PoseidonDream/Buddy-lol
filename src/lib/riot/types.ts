@@ -76,6 +76,17 @@ export interface ParticipantDto {
   placement?: number;
 }
 
+/** league-v4: everyone in Challenger, Grandmaster or Master for one queue. */
+export interface LeagueListDto {
+  entries?: {
+    puuid?: string;
+    leaguePoints: number;
+    wins: number;
+    losses: number;
+    hotStreak?: boolean;
+  }[];
+}
+
 /** spectator-v5: a game in progress. */
 export interface CurrentGameDto {
   gameMode?: string;

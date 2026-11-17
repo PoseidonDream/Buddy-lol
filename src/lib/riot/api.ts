@@ -2,11 +2,13 @@ import "server-only";
 
 import { matchListQuery, type ServerFilter } from "../game-data";
 import type { Region } from "../regions";
+import type { ApexTier, RankedQueue } from "../types";
 import { riotGet } from "./client";
 import type {
   AccountDto,
   CurrentGameDto,
   LeagueEntryDto,
+  LeagueListDto,
   MasteryDto,
   MatchDto,
   SummonerDto,
@@ -23,6 +25,27 @@ export function getAccount(region: Region, gameName: string, tagLine: string) {
     region.accountRoute,
     `/riot/account/v1/accounts/by-riot-id/${enc(gameName)}/${enc(tagLine)}`,
     HOUR,
+  );
+}
+
+/** Names change rarely, and a ladder page needs one lookup per row, so keep these a day. */
+export function getAccountByPuuid(region: Region, puuid: string) {
+  return riotGet<AccountDto>(
+    region.accountRoute,
+    `/riot/account/v1/accounts/by-puuid/${enc(puuid)}`,
+    DAY,
+  );
+}
+
+/**
+ * Not cached here: the Master list for a large region is bigger than the
+ * fetch cache accepts. ladder.ts keeps the trimmed result in memory instead.
+ */
+export function getApexLeague(region: Region, tier: ApexTier, queue: RankedQueue) {
+  return riotGet<LeagueListDto>(
+    region.platform,
+    `/lol/league/v4/${tier}leagues/by-queue/${queue}`,
+    0,
   );
 }
 

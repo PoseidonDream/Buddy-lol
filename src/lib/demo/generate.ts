@@ -28,6 +28,7 @@ import type {
 } from "../types";
 import { riotIdToSlug } from "../riot-id";
 import { ratePlayers } from "../score";
+import { demoLadderRank } from "./ladder";
 import { Rng, hashString } from "./random";
 
 const TOTAL_MATCHES = 60;
@@ -81,6 +82,7 @@ const NAMES = [
 
 interface Persona {
   seed: string;
+  regionSlug: string;
   puuid: string;
   gameName: string;
   tagLine: string;
@@ -111,6 +113,7 @@ function persona(regionSlug: string, gameName: string, tagLine: string, defaultT
   ];
   return {
     seed,
+    regionSlug,
     puuid: `demo-${hashString(seed).toString(16)}`,
     gameName,
     tagLine,
@@ -369,6 +372,22 @@ function rankedEntries(rng: Rng, me: Persona): RankedEntry[] {
 
   const entries: RankedEntry[] = [];
   if (me.playsSolo) entries.push(entry("RANKED_SOLO_5x5", tierIndex, rng.int(60, 340)));
+
+  // A name taken from the sample leaderboard should open on that rank.
+  const ladder = demoLadderRank({ slug: me.regionSlug, defaultTag: me.defaultTag }, me.gameName, me.tagLine);
+  if (ladder) {
+    const solo: RankedEntry = {
+      queue: "RANKED_SOLO_5x5",
+      tier: ladder.tier.toUpperCase() as Tier,
+      division: "I",
+      lp: ladder.row.lp,
+      wins: ladder.row.wins,
+      losses: ladder.row.losses,
+      hotStreak: ladder.row.hotStreak,
+    };
+    return [solo, ...entries.filter((e) => e.queue !== "RANKED_SOLO_5x5")];
+  }
+
   if (me.playsFlex) {
     entries.push(entry("RANKED_FLEX_SR", tierIndex - rng.int(0, 2), rng.int(12, 90)));
   }

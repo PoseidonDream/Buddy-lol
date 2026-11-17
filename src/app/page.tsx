@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { DemoBanner } from "@/components/DemoBanner";
+import { NavLinks } from "@/components/NavLinks";
 import { PlayerChip, RecentSearches } from "@/components/RecentSearches";
 import { SearchBar } from "@/components/SearchBar";
 import { Wordmark } from "@/components/SiteHeader";
@@ -48,7 +49,12 @@ export default function Home() {
         </DemoMode>
       </Suspense>
 
-      <main className="mx-auto max-w-3xl px-4 pb-24 pt-20 sm:pt-28">
+      {/* The page itself is the wordmark, so this bar only carries navigation. */}
+      <header className="mx-auto flex max-w-6xl justify-end px-4 py-3">
+        <NavLinks />
+      </header>
+
+      <main className="mx-auto max-w-3xl px-4 pb-24 pt-10 sm:pt-16">
         <p className="label-caps mb-5">League of Legends player lookup</p>
         <h1 className="text-5xl sm:text-7xl">
           <Wordmark />
