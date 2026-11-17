@@ -12,6 +12,7 @@ import type {
   MasteryDto,
   MatchDto,
   SummonerDto,
+  TimelineDto,
 } from "./types";
 
 const MINUTE = 60;
@@ -111,6 +112,15 @@ export function getMatch(region: Region, matchId: string) {
   return riotGet<MatchDto>(
     region.matchRoute,
     `/lol/match/v5/matches/${enc(matchId)}`,
+    30 * DAY,
+  );
+}
+
+/** A finished match's minute-by-minute timeline. Large, and it never changes. */
+export function getTimeline(region: Region, matchId: string) {
+  return riotGet<TimelineDto>(
+    region.matchRoute,
+    `/lol/match/v5/matches/${enc(matchId)}/timeline`,
     30 * DAY,
   );
 }

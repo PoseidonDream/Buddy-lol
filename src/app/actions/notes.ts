@@ -13,6 +13,7 @@ import {
   passwordMatches,
   signSession,
 } from "@/lib/notes-auth";
+import { cleanTags } from "@/lib/note-tags";
 import { clientIp } from "@/lib/rate-limit";
 import { getRegion } from "@/lib/regions";
 import { getStore } from "@/lib/store";
@@ -66,25 +67,23 @@ export async function lockNotes(): Promise<void> {
 }
 
 export async function addNote(_: NotesFormState, form: FormData): Promise<NotesFormState> {
-  const author = await currentWriter();
-  if (!author) {
-    return {
-      error: "Your notes session has ended. Unlock notes again.",
-      values: { body: String(form.get("body") ?? "") },
-    };
-  }
-
   const body = String(form.get("body") ?? "").trim();
+  const typedTags = String(form.get("customTags") ?? "");
+  const tags = cleanTags([...form.getAll("tag").map(String), ...typedTags.split(",")]);
+  // Sent back on errors so nothing typed or ticked is lost.
+  const values = { body, customTags: typedTags, tags: tags.join("\n") };
+
+  const author = await currentWriter();
+  if (!author) return { error: "Your notes session has ended. Unlock notes again.", values };
+
   const puuid = String(form.get("puuid") ?? "");
   const region = getRegion(String(form.get("region") ?? ""));
   const riotId = String(form.get("riotId") ?? "").slice(0, 40);
-  if (!body) return { error: "Write something first." };
-  if (body.length > MAX_NOTE) {
-    return { error: `Notes can be up to ${MAX_NOTE} characters.`, values: { body } };
-  }
-  if (!region || !puuid || puuid.length > 100 || !riotId) return { error: "Unknown player.", values: { body } };
+  if (!body && tags.length === 0) return { error: "Write something or pick a tag first.", values };
+  if (body.length > MAX_NOTE) return { error: `Notes can be up to ${MAX_NOTE} characters.`, values };
+  if (!region || !puuid || puuid.length > 100 || !riotId) return { error: "Unknown player.", values };
 
-  await getStore().addNote({ puuid, regionSlug: region.slug, riotId, author, body, at: Date.now() });
+  await getStore().addNote({ puuid, regionSlug: region.slug, riotId, author, body, tags, at: Date.now() });
   refresh();
   return { error: null };
 }

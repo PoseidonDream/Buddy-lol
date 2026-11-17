@@ -16,7 +16,7 @@ import { queueName } from "@/lib/game-data";
 import { highlights, outcomeOf, type Outcome } from "@/lib/stats";
 import type { ItemNames, MatchSummary } from "@/lib/types";
 import { GameIcon } from "../GameIcon";
-import { MatchDetails } from "./MatchDetails";
+import { MatchExpanded } from "./MatchExpanded";
 import { ItemRow, Loadout, PlayerLink, ScoreBadge } from "./MatchParts";
 import { kdaTone } from "./SummaryPanel";
 
@@ -199,7 +199,7 @@ export function MatchCard({
 
       {open && (
         <div id={detailsId} className="border-t border-edge bg-ink/40">
-          <MatchDetails
+          <MatchExpanded
             match={match}
             regionSlug={regionSlug}
             assetVersion={assetVersion}

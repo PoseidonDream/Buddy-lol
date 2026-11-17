@@ -34,7 +34,7 @@ function fail<T>(kind: ProfileError["kind"], message: string): Result<T> {
   return { ok: false, error: { kind, message } };
 }
 
-function describe<T>(err: unknown): Result<T> {
+export function describeRiotError<T>(err: unknown): Result<T> {
   if (!(err instanceof RiotApiError)) throw err;
   if (err.status === 429) {
     return fail("rate_limited", "We're asking Riot for too much at once. Give it a minute and try again.");
@@ -165,7 +165,7 @@ export async function getProfile(
       },
     };
   } catch (err) {
-    return describe(err);
+    return describeRiotError(err);
   }
 }
 
@@ -218,6 +218,6 @@ export async function getMatchPage(
       },
     };
   } catch (err) {
-    return describe(err);
+    return describeRiotError(err);
   }
 }

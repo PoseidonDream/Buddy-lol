@@ -25,6 +25,9 @@ export const metadata: Metadata = {
   description:
     "Look up any League of Legends player: rank, match history, champion stats and mastery.",
   applicationName: "Buddy.lol",
+  // Added to an iPhone's home screen, it opens full screen under this name.
+  appleWebApp: { capable: true, title: "Buddy.lol", statusBarStyle: "black" },
+  formatDetection: { telephone: false },
   openGraph: {
     type: "website",
     siteName: "Buddy.lol",

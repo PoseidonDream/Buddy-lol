@@ -3,9 +3,10 @@ import "server-only";
 import { getStaticData } from "./ddragon";
 import { Rng } from "./demo/random";
 import { getRegion } from "./regions";
-import { getApexLeague, getMatch, getMatchIds } from "./riot/api";
+import { MAX_PINNED } from "./pinned";
+import { getApexLeague, getLeagueEntries, getMatch, getMatchIds } from "./riot/api";
 import { RiotApiError } from "./riot/client";
-import { mapMatch } from "./riot/mapper";
+import { mapMatch, mapRanked } from "./riot/mapper";
 import { matchDelta } from "./store/delta";
 import { getStore } from "./store";
 import type { RankSnapshot } from "./store/types";
@@ -72,6 +73,26 @@ export async function collect(
   };
 
   try {
+    // Pinned players first: a request each keeps their 24-hour LP change on
+    // the home page accurate even when nobody opens their profile.
+    const pins = (await store.listPinned()).filter((p) => p.regionSlug === region.slug).slice(0, MAX_PINNED);
+    const pinned: RankSnapshot[] = [];
+    for (const pin of pins) {
+      if (!spend()) break;
+      try {
+        const at = Date.now();
+        for (const r of mapRanked((await getLeagueEntries(region, pin.puuid)) ?? [])) {
+          const { queue, tier, division, lp, wins, losses } = r;
+          pinned.push({ puuid: pin.puuid, regionSlug: region.slug, queue, tier, division, lp, wins, losses, at });
+        }
+      } catch (err) {
+        if (isFatal(err)) throw err;
+        report.skipped++;
+      }
+    }
+    await store.recordRanks(pinned);
+    report.ranksRecorded += pinned.length;
+
     const players: string[] = [];
     for (const tier of ["challenger", "grandmaster"] as ApexTier[]) {
       if (!spend()) return report;

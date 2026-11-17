@@ -13,6 +13,7 @@ import {
   getChampionPage,
   minGamesFor,
   type ChampionPage,
+  type MatchupView,
   type PickRow,
 } from "@/lib/champions";
 import { getStaticData } from "@/lib/ddragon";
@@ -103,7 +104,7 @@ async function Content({ params, searchParams }: Props) {
             {page.patch ? ` on patch ${page.patch}` : ""} yet.
           </p>
         ) : (
-          <Stats page={page} role={role} enough={enough} />
+          <Stats page={page} role={role} enough={enough} version={version} />
         )}
       </main>
     </>
@@ -119,10 +120,12 @@ function Stats({
   page,
   role,
   enough,
+  version,
 }: {
   page: ChampionPage;
   role: ChampionPage["positions"][number] | undefined;
   enough: boolean;
+  version: string;
 }) {
   const games = role?.games ?? page.games;
   const wins = role?.wins ?? page.wins;
@@ -167,6 +170,10 @@ function Stats({
         </p>
       )}
 
+      {page.position && (
+        <Matchups page={page} roleName={POSITION_NAMES[page.position]} version={version} />
+      )}
+
       <div className="mt-6 grid items-start gap-4 lg:grid-cols-2">
         <PickList title="Items" rows={page.picks.item.slice(0, 8)} total={page.games} square />
         <div className="grid gap-4">
@@ -180,6 +187,84 @@ function Stats({
         when a player finished the game holding it.
       </p>
     </>
+  );
+}
+
+function Matchups({ page, roleName, version }: { page: ChampionPage; roleName: string; version: string }) {
+  const { best, worst, minGames, opponents } = page.matchups;
+  return (
+    <section className="mt-6" aria-labelledby="matchups-heading">
+      <h2 id="matchups-heading" className="text-lg font-semibold">
+        Matchups <span className="font-normal text-soft">· {roleName}</span>
+      </h2>
+      {best.length === 0 && worst.length === 0 ? (
+        <p className="card mt-3 p-5 text-sm text-soft">
+          {opponents === 0
+            ? `No lane matchups counted for ${page.championName} here yet. They build up as games are collected.`
+            : `${opponents} lane opponents so far, none with the ${minGames} games needed to judge.`}
+        </p>
+      ) : (
+        <>
+          <div className="mt-3 grid items-start gap-4 sm:grid-cols-2">
+            <MatchupList title="Best against" tone="win" rows={best} page={page} version={version} />
+            <MatchupList title="Worst against" tone="loss" rows={worst} page={page} version={version} />
+          </div>
+          <p className="mt-2 text-xs text-faint">
+            Against the enemy {roleName.toLowerCase()} player, from {opponents} opponents. Listed after {minGames} games.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
+function MatchupList({
+  title,
+  tone,
+  rows,
+  page,
+  version,
+}: {
+  title: string;
+  tone: "win" | "loss";
+  rows: MatchupView[];
+  page: ChampionPage;
+  version: string;
+}) {
+  return (
+    <div className="card">
+      <h3 className={`label-caps px-4 pt-4 ${tone === "win" ? "text-win" : "text-loss"}`}>{title}</h3>
+      {rows.length === 0 ? (
+        <p className="px-4 pb-4 pt-2 text-sm text-soft">None yet.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-edge">
+          {rows.map((m) => {
+            const params = new URLSearchParams();
+            if (page.position) params.set("position", POSITION_SLUGS[page.position]);
+            if (page.patch) params.set("patch", page.patch);
+            return (
+              <li key={m.championKey} className="flex items-center gap-3 px-4 py-2">
+                <GameIcon
+                  src={championIcon(version, m.championKey)}
+                  alt=""
+                  label={initials(m.championName)}
+                  className="size-8 rounded-lg"
+                />
+                <Link href={`/champions/${m.championKey}?${params}`} className="min-w-0 flex-1 truncate rounded text-sm hover:underline">
+                  {m.championName}
+                </Link>
+                <span className="text-right leading-tight">
+                  <span className={`block font-mono text-sm font-semibold tabular-nums ${tone === "win" ? "text-win" : "text-loss"}`}>
+                    {pct(m.wins / m.games)}
+                  </span>
+                  <span className="block font-mono text-[11px] text-faint">{m.games} games</span>
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 

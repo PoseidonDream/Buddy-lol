@@ -4,9 +4,11 @@ import { championIcon } from "@/lib/assets";
 import { formatCompact, initials, percent } from "@/lib/format";
 import { APEX_TIERS, queueName, tierName } from "@/lib/game-data";
 import { rankFromValue, rankValue } from "@/lib/rank-scale";
+import type { NoteSummary } from "@/lib/store/types";
 import type { LiveGame, LivePlayer, LiveTeam, RankedEntry } from "@/lib/types";
 import { useNow } from "@/lib/use-now";
 import { GameIcon } from "../GameIcon";
+import { TagChip } from "../notes/TagChip";
 import { TierEmblem } from "../TierEmblem";
 import { Loadout, PlayerLink } from "./MatchParts";
 
@@ -50,7 +52,7 @@ function PlayerRow({
   focused: boolean;
   regionSlug: string;
   assetVersion: string;
-  notes: number;
+  notes: NoteSummary | undefined;
 }) {
   const { rank, mastery } = player;
   return (
@@ -72,12 +74,19 @@ function PlayerRow({
             />
             <p className="truncate text-[11px] text-faint">
               {player.championName}
-              {notes > 0 && (
+              {notes && (
                 <span className="ml-1.5 rounded bg-gold/15 px-1 text-gold" title="You have notes on this player">
-                  {notes} {notes === 1 ? "note" : "notes"}
+                  {notes.count} {notes.count === 1 ? "note" : "notes"}
                 </span>
               )}
             </p>
+            {notes && notes.tags.length > 0 && (
+              <div className="mt-0.5 flex max-w-48 flex-wrap gap-0.5">
+                {notes.tags.slice(0, 3).map((tag) => (
+                  <TagChip key={tag} tag={tag} className="px-1! py-0! text-[10px]!" />
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </td>
@@ -120,13 +129,13 @@ function Team({
   focusPuuid,
   regionSlug,
   assetVersion,
-  noteCounts,
+  notes,
 }: {
   team: LiveTeam;
   focusPuuid: string;
   regionSlug: string;
   assetVersion: string;
-  noteCounts: Record<string, number>;
+  notes: Record<string, NoteSummary>;
 }) {
   const blue = team.id === 100;
   const average = averageRank(team);
@@ -172,7 +181,7 @@ function Team({
               focused={p.puuid !== null && p.puuid === focusPuuid}
               regionSlug={regionSlug}
               assetVersion={assetVersion}
-              notes={p.puuid ? (noteCounts[p.puuid] ?? 0) : 0}
+              notes={p.puuid ? notes[p.puuid] : undefined}
             />
           ))}
         </tbody>
@@ -187,7 +196,7 @@ export function LiveGameCard({
   regionSlug,
   assetVersion,
   fetchedAt,
-  noteCounts = {},
+  notes = {},
 }: {
   game: LiveGame;
   /** The player whose profile this is, highlighted in the list. */
@@ -196,7 +205,7 @@ export function LiveGameCard({
   assetVersion: string;
   fetchedAt: number;
   /** Notes per player, shown to people who have unlocked notes. */
-  noteCounts?: Record<string, number>;
+  notes?: Record<string, NoteSummary>;
 }) {
   const now = useNow(fetchedAt);
   const minutes = game.startedAt === null ? null : Math.max(0, Math.floor((now - game.startedAt) / 60_000));
@@ -229,7 +238,7 @@ export function LiveGameCard({
             focusPuuid={focusPuuid}
             regionSlug={regionSlug}
             assetVersion={assetVersion}
-            noteCounts={noteCounts}
+            notes={notes}
           />
         ))}
       </div>

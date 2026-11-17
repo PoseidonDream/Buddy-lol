@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { adjustedWinRate, minGamesFor, positionFromSlug, tierFor } from "./champions";
+import { adjustedWinRate, minGamesFor, positionFromSlug, rankMatchups, tierFor } from "./champions";
 
 describe("champion tiers", () => {
   it("needs enough games before giving a tier", () => {
@@ -34,5 +34,15 @@ describe("champion tiers", () => {
     expect(positionFromSlug("support")).toBe("UTILITY");
     expect(positionFromSlug("mid")).toBe("MIDDLE");
     expect(positionFromSlug("adc")).toBeNull();
+  });
+});
+
+describe("rankMatchups", () => {
+  const m = (key: string, games: number, wins: number) => ({ championKey: key, championName: key, games, wins });
+  it("ranks opponents by win rate pulled toward 50%, needs enough games, never lists one twice", () => {
+    const rows = [m("Easy", 20, 15), m("Lucky", 3, 3), m("Hard", 20, 5), m("Even", 10, 5), m("Rare", 2, 0), m("Tough", 6, 1)];
+    const { best, worst } = rankMatchups(rows, 3);
+    expect(best.map((x) => x.championKey)).toEqual(["Easy", "Lucky"]);
+    expect(worst.map((x) => x.championKey)).toEqual(["Hard", "Tough"]);
   });
 });

@@ -7,7 +7,10 @@ import {
   type ChampionDetail,
   type ChampionRow,
   type MatchDelta,
+  type MatchupRow,
   type PatchTotal,
+  type PinnedPlayer,
+  summarizeNotes,
   type Feedback,
   type PickKind,
   type PlayerNote,
@@ -36,7 +39,10 @@ interface Data {
   bans: Record<string, Record<string, number>>;
   /** patch -> "champion|kind|choice" -> counts */
   picks: Record<string, Record<string, Counter>>;
+  /** patch -> "champion|position|opponent" -> counts */
+  matchups: Record<string, Record<string, Counter>>;
   notes: PlayerNote[];
+  pinned: PinnedPlayer[];
   nextNoteId: number;
   feedback: Feedback[];
   nextFeedbackId: number;
@@ -51,7 +57,9 @@ function empty(): Data {
     champions: {},
     bans: {},
     picks: {},
+    matchups: {},
     notes: [],
+    pinned: [],
     nextNoteId: 1,
     feedback: [],
     nextFeedbackId: 1,
@@ -85,6 +93,8 @@ export class MemoryStore implements Store {
       const parsed = JSON.parse(await readFile(path, "utf8")) as Data;
       if (parsed.version === 1) {
         this.data = { ...empty(), ...parsed };
+        // Notes saved before tags existed.
+        this.data.notes = this.data.notes.map((n) => ({ ...n, tags: n.tags ?? [] }));
         this.seen = new Set(this.data.seen);
       }
     } catch {
@@ -146,12 +156,34 @@ export class MemoryStore implements Store {
     return true;
   }
 
-  async noteCounts(puuids: string[]) {
+  async noteSummaries(puuids: string[]) {
     await this.loaded;
     const wanted = new Set(puuids);
-    const counts: Record<string, number> = {};
-    for (const n of this.data.notes) if (wanted.has(n.puuid)) counts[n.puuid] = (counts[n.puuid] ?? 0) + 1;
-    return counts;
+    // Oldest first, so tags used equally often keep the order they were first used in.
+    const notes = this.data.notes.filter((n) => wanted.has(n.puuid)).sort((a, b) => a.at - b.at);
+    return summarizeNotes(notes);
+  }
+
+  async pinPlayer(pin: PinnedPlayer) {
+    await this.loaded;
+    const existing = this.data.pinned.findIndex((p) => p.puuid === pin.puuid);
+    if (existing >= 0) this.data.pinned[existing] = { ...pin, at: this.data.pinned[existing].at };
+    else this.data.pinned.push(pin);
+    this.scheduleSave();
+  }
+
+  async unpinPlayer(puuid: string) {
+    await this.loaded;
+    const before = this.data.pinned.length;
+    this.data.pinned = this.data.pinned.filter((p) => p.puuid !== puuid);
+    if (this.data.pinned.length === before) return false;
+    this.scheduleSave();
+    return true;
+  }
+
+  async listPinned() {
+    await this.loaded;
+    return [...this.data.pinned].sort((a, b) => a.at - b.at);
   }
 
   async addFeedback(item: Omit<Feedback, "id">) {
@@ -227,6 +259,8 @@ export class MemoryStore implements Store {
     for (const b of delta.bans) bans[b] = (bans[b] ?? 0) + 1;
     const picks = (this.data.picks[patch] ??= {});
     for (const p of delta.picks) bump(picks, `${p.champion}|${p.kind}|${p.choice}`, p.win);
+    const matchups = (this.data.matchups[patch] ??= {});
+    for (const m of delta.matchups ?? []) bump(matchups, `${m.champion}|${m.position}|${m.opponent}`, m.win);
 
     this.scheduleSave();
     return true;
@@ -267,5 +301,15 @@ export class MemoryStore implements Store {
         return { kind: kind as PickKind, choice, ...c };
       });
     return { positions, bans: this.data.bans[patch]?.[champion] ?? 0, picks };
+  }
+
+  async championMatchups(patch: string, champion: string): Promise<MatchupRow[]> {
+    await this.loaded;
+    return Object.entries(this.data.matchups[patch] ?? {})
+      .filter(([key]) => key.startsWith(`${champion}|`))
+      .map(([key, c]) => {
+        const [, position, opponent] = key.split("|");
+        return { position: position as Position, opponent, ...c };
+      });
   }
 }

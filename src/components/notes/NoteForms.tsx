@@ -2,6 +2,13 @@
 
 import { useActionState, useId } from "react";
 import { addNote, deleteNote, unlockNotes, type NotesFormState } from "@/app/actions/notes";
+import { MAX_TAG_LENGTH, PRESET_TAGS, TAG_LABELS } from "@/lib/note-tags";
+
+const PILL_TONES = {
+  good: "has-checked:border-win has-checked:bg-win/20 has-checked:text-win",
+  bad: "has-checked:border-loss has-checked:bg-loss/20 has-checked:text-loss",
+  neutral: "has-checked:border-faint has-checked:bg-white/15 has-checked:text-fg",
+} as const;
 
 const input =
   "w-full rounded-lg border border-edge bg-ink/60 px-3 py-2 text-sm text-fg outline-none placeholder:text-faint focus:border-accent";
@@ -60,12 +67,44 @@ export function AddNoteForm({
 }) {
   const uid = useId();
   const [state, action, pending] = useActionState(addNote, initial);
+  const checked = new Set(state.values?.tags?.split("\n"));
   return (
     // React resets the form after a successful submission.
     <form action={action} className="space-y-2">
       <input type="hidden" name="puuid" value={puuid} />
       <input type="hidden" name="region" value={region} />
       <input type="hidden" name="riotId" value={riotId} />
+      <fieldset>
+        <legend className="sr-only">Tags</legend>
+        <div className="flex flex-wrap gap-1.5">
+          {PRESET_TAGS.map((tag) => (
+            <label
+              key={tag.id}
+              className={`cursor-pointer select-none rounded-full border border-edge px-2.5 py-0.5 text-xs text-soft transition-colors hover:border-faint has-focus-visible:outline-2 has-focus-visible:outline-accent ${PILL_TONES[tag.tone]}`}
+            >
+              <input
+                type="checkbox"
+                name="tag"
+                value={tag.id}
+                defaultChecked={checked.has(tag.id)}
+                className="sr-only"
+              />
+              {TAG_LABELS[tag.id]}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <label htmlFor={`${uid}-tags`} className="sr-only">
+        Other tags, separated by commas
+      </label>
+      <input
+        id={`${uid}-tags`}
+        name="customTags"
+        defaultValue={state.values?.customTags}
+        maxLength={MAX_TAG_LENGTH * 3}
+        placeholder="Other tags, e.g. duo with Kaori"
+        className={input}
+      />
       <label htmlFor={`${uid}-body`} className="sr-only">
         New note
       </label>

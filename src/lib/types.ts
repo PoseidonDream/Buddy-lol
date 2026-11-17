@@ -237,3 +237,32 @@ export interface MatchPage {
   /** Names of the items that appear in `matches`, for tooltips. */
   itemNames: ItemNames;
 }
+
+/** One player's game, minute by minute. */
+export interface TimelinePlayer {
+  puuid: string;
+  /** Total gold earned by the start of each minute, from minute 0. */
+  gold: number[];
+  /** Items bought, in order, in seconds from the start. Undone purchases are left out. */
+  purchases: { at: number; itemId: number }[];
+  /** The ability raised at each level-up, in order: 1 = Q, 2 = W, 3 = E, 4 = R. */
+  skills: number[];
+}
+
+export type ObjectiveKind = "dragon" | "baron" | "herald" | "grubs" | "atakhan" | "tower" | "inhibitor";
+
+export interface TimelineObjective {
+  /** Seconds from the start. */
+  at: number;
+  /** The team that took it. */
+  teamId: number;
+  kind: ObjectiveKind;
+}
+
+export interface MatchTimeline {
+  matchId: string;
+  players: TimelinePlayer[];
+  objectives: TimelineObjective[];
+  /** Names of every item bought, for tooltips. */
+  itemNames: ItemNames;
+}

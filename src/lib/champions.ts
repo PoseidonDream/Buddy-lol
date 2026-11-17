@@ -49,6 +49,15 @@ export interface ChampionPage {
   bans: number;
   /** Most picked first, with what is needed to show each. */
   picks: Record<PickKind, PickRow[]>;
+  /** Lane opponents in the chosen position, with enough games to judge. */
+  matchups: { best: MatchupView[]; worst: MatchupView[]; minGames: number; opponents: number };
+}
+
+export interface MatchupView {
+  championKey: string;
+  championName: string;
+  games: number;
+  wins: number;
 }
 
 export interface PickRow {
@@ -74,6 +83,26 @@ export function minGamesFor(matches: number): number {
  */
 export function adjustedWinRate(wins: number, games: number): number {
   return (wins + 50) / (games + 100);
+}
+
+/** A lane opponent needs this many games before it is listed. */
+export function minMatchupGames(roleGames: number): number {
+  return Math.max(3, Math.ceil(roleGames * 0.01));
+}
+
+/**
+ * Splits opponents into the ones this champion beats most and loses to most,
+ * judged on win rate pulled toward 50% by ten games so a 3-0 doesn't top the list.
+ */
+export function rankMatchups(rows: MatchupView[], minGames: number, count = 5) {
+  const score = (m: MatchupView) => (m.wins + 5) / (m.games + 10);
+  const judged = rows.filter((m) => m.games >= minGames);
+  const best = [...judged].sort((a, b) => score(b) - score(a) || b.games - a.games).filter((m) => score(m) > 0.5).slice(0, count);
+  const worst = [...judged]
+    .sort((a, b) => score(a) - score(b) || b.games - a.games)
+    .filter((m) => score(m) < 0.5 && !best.includes(m))
+    .slice(0, count);
+  return { best, worst };
 }
 
 export function tierFor(wins: number, games: number, minGames: number): Tier | null {
@@ -172,7 +201,9 @@ export async function getChampionPage(
 
   const current = patches.find((p) => p.patch === requestedPatch) ?? patches[0];
   const empty: ChampionDetail = { positions: [], bans: 0, picks: [] };
-  const detail = current ? await store.championDetail(current.patch, known.key) : empty;
+  const [detail, lanes] = current
+    ? await Promise.all([store.championDetail(current.patch, known.key), store.championMatchups(current.patch, known.key)])
+    : [empty, []];
 
   const positions = [...detail.positions].sort((a, b) => b.games - a.games);
   const position =
@@ -208,8 +239,20 @@ export async function getChampionPage(
   }
   for (const list of Object.values(picks)) list.sort((a, b) => b.games - a.games || b.wins - a.wins);
 
+  const roleGames = positions.find((p) => p.position === position)?.games ?? 0;
+  const minMatchup = minMatchupGames(roleGames);
+  const opponents: MatchupView[] = lanes
+    .filter((m) => m.position === position)
+    .map((m) => ({
+      championKey: m.opponent,
+      championName: championName(staticData, m.opponent),
+      games: m.games,
+      wins: m.wins,
+    }));
+
   return {
     source: demo ? "demo" : "live",
+    matchups: { ...rankMatchups(opponents, minMatchup), minGames: minMatchup, opponents: opponents.length },
     championKey: known.key,
     championName: known.name,
     patch: current?.patch ?? null,

@@ -7,7 +7,7 @@ import {
   queueGroup,
   type QueueGroup,
 } from "@/lib/game-data";
-import { outcomeOf, summarize } from "@/lib/stats";
+import { outcomeOf, playedWith, summarize } from "@/lib/stats";
 import type {
   ItemNames,
   MatchPage,
@@ -20,6 +20,7 @@ import { useNow } from "@/lib/use-now";
 import { RememberProfile } from "../RecentSearches";
 import { MasteryList, RecentChampions } from "./ChampionLists";
 import { MatchCard } from "./MatchCard";
+import { PlayedWith } from "./PlayedWith";
 import { ProfileHeader } from "./ProfileHeader";
 import { RankCard } from "./RankCard";
 import { SummaryPanel } from "./SummaryPanel";
@@ -100,6 +101,7 @@ export function ProfileView({
 
   const summary = useMemo(() => summarize(visible), [visible]);
   const form = useMemo(() => visible.slice(0, 20).map(outcomeOf), [visible]);
+  const teammates = useMemo(() => playedWith(visible), [visible]);
   const itemNames = useMemo(
     () => ({ ...moreItemNames, ...profile.itemNames }),
     [moreItemNames, profile.itemNames],
@@ -251,6 +253,12 @@ export function ProfileView({
 
         <div className="grid gap-4 sm:max-lg:grid-cols-2 lg:col-start-1 lg:row-start-2">
           <RecentChampions champions={summary.champions} assetVersion={profile.assetVersion} />
+          <PlayedWith
+            teammates={teammates}
+            games={visible.filter((m) => !m.remake).length}
+            regionSlug={profile.regionSlug}
+            assetVersion={profile.assetVersion}
+          />
           <MasteryList mastery={profile.mastery} assetVersion={profile.assetVersion} now={now} />
         </div>
       </div>

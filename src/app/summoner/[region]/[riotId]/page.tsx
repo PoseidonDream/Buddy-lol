@@ -13,6 +13,7 @@ import { ProfileView } from "@/components/profile/ProfileView";
 import { getLiveGame } from "@/lib/live";
 import { currentWriter } from "@/lib/notes-auth";
 import { getStore } from "@/lib/store";
+import type { NoteSummary } from "@/lib/store/types";
 import { MATCH_PAGE_SIZE, getProfile } from "@/lib/profile";
 import { getRankHistory } from "@/lib/rank-history";
 import { LIMIT_MESSAGE, clientIp, takeLookups } from "@/lib/rate-limit";
@@ -92,17 +93,17 @@ async function ProfileSection({ params }: Pick<Props, "params">) {
           pageSize={MATCH_PAGE_SIZE}
           liveGame={
             // Checked separately so a slow answer never holds up the profile.
-            <Suspense fallback={null}>
+            <Suspense key="LiveGame" fallback={null}>
               <LiveGame profile={profile} />
             </Suspense>
           }
           rankHistory={
-            <Suspense fallback={null}>
+            <Suspense key="RankHistorySection" fallback={null}>
               <RankHistorySection profile={profile} />
             </Suspense>
           }
           notes={
-            <Suspense fallback={null}>
+            <Suspense key="NotesPanel" fallback={null}>
               <NotesPanel profile={profile} />
             </Suspense>
           }
@@ -122,11 +123,11 @@ async function LiveGame({ profile }: { profile: Profile }) {
   if (!game) return null;
 
   // People who have unlocked notes see which players they've noted before.
-  let noteCounts: Record<string, number> = {};
+  let notes: Record<string, NoteSummary> = {};
   if (await currentWriter()) {
     const puuids = game.teams.flatMap((t) => t.players.flatMap((p) => (p.puuid ? [p.puuid] : [])));
-    noteCounts = await getStore()
-      .noteCounts(puuids)
+    notes = await getStore()
+      .noteSummaries(puuids)
       .catch(() => ({}));
   }
 
@@ -137,7 +138,7 @@ async function LiveGame({ profile }: { profile: Profile }) {
       regionSlug={profile.regionSlug}
       assetVersion={profile.assetVersion}
       fetchedAt={profile.generatedAt}
-      noteCounts={noteCounts}
+      notes={notes}
     />
   );
 }

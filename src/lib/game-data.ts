@@ -174,6 +174,16 @@ export const SPELLS: Record<number, { key: string; name: string }> = {
  * cannot be fetched (and by the sample data, which only uses these).
  */
 export const ITEM_NAMES: Record<number, string> = {
+  // Starting items, bought in sample timelines.
+  1001: "Boots",
+  1054: "Doran's Shield",
+  1055: "Doran's Blade",
+  1056: "Doran's Ring",
+  1101: "Scorchclaw Pup",
+  1102: "Gustwalker Hatchling",
+  1103: "Mosstomper Seedling",
+  2003: "Health Potion",
+  3865: "World Atlas",
   2052: "Poro-Snax",
   2065: "Shurelya's Battlesong",
   3006: "Berserker's Greaves",

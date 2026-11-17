@@ -3,6 +3,7 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 import { DemoBanner } from "@/components/DemoBanner";
 import { NavLinks } from "@/components/NavLinks";
+import { PinnedPlayers } from "@/components/PinnedPlayers";
 import { PlayerChip, RecentSearches } from "@/components/RecentSearches";
 import { SearchBar } from "@/components/SearchBar";
 import { Wordmark } from "@/components/SiteHeader";
@@ -97,6 +98,9 @@ export default function Home() {
         </div>
 
         <div className="mt-10 space-y-8">
+          <Suspense fallback={null}>
+            <PinnedPlayers />
+          </Suspense>
           <RecentSearches />
 
           <Suspense>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatDuration, formatKda, kdaRatio, ordinal, timeAgo } from "./format";
-import { highlights, outcomeOf, summarize } from "./stats";
+import { highlights, outcomeOf, playedWith, summarize } from "./stats";
 import type { MatchSummary, ParticipantSummary } from "./types";
 
 function me(extra: Partial<ParticipantSummary>): ParticipantSummary {
@@ -119,5 +119,35 @@ describe("ordinal", () => {
     expect([1, 2, 3, 4, 10, 11, 12, 13, 21, 22, 23, 101, 111].map(ordinal)).toEqual([
       "1st", "2nd", "3rd", "4th", "10th", "11th", "12th", "13th", "21st", "22nd", "23rd", "101st", "111th",
     ]);
+  });
+});
+
+describe("playedWith", () => {
+  const withMates = (id: string, win: boolean, endedAt: number, mates: [string, string][], extra: Partial<MatchSummary> = {}) => {
+    const m = game(id, { win }, 10, { endedAt, ...extra });
+    m.teams[0].participants.push(
+      ...mates.map(([puuid, name]) => me({ puuid, gameName: name, championKey: `C${id}`, championName: `C${id}`, win })),
+    );
+    m.teams[1].participants.push(me({ puuid: "enemy", gameName: "Enemy", win: !win }));
+    return m;
+  };
+
+  it("counts teammates seen at least twice, most games first, with the latest name", () => {
+    const list = playedWith([
+      withMates("1", true, 3, [["a", "Ana New"], ["b", "Bo"]]),
+      withMates("2", false, 2, [["a", "Ana Old"], ["c", "Cy"]]),
+      withMates("3", true, 1, [["a", "Ana Old"], ["b", "Bo"]]),
+      withMates("4", true, 0, [["a", "Ana"]], { remake: true }),
+    ]);
+    expect(list.map((t) => [t.puuid, t.gameName, t.games, t.wins])).toEqual([
+      ["a", "Ana New", 3, 2],
+      ["b", "Bo", 2, 2],
+    ]);
+    expect(list[0].championKey).toBe("C1");
+  });
+
+  it("never lists enemies or the player", () => {
+    const list = playedWith([withMates("1", true, 2, [["a", "A"]]), withMates("2", true, 1, [["a", "A"]])], 1);
+    expect(list.map((t) => t.puuid)).toEqual(["a"]);
   });
 });

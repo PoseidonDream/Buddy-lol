@@ -134,3 +134,51 @@ export function summarize(matches: MatchSummary[]): Summary {
     roles: POSITIONS.map((p) => roles.get(p) ?? { position: p, games: 0, wins: 0 }),
   };
 }
+
+export interface Teammate {
+  puuid: string;
+  gameName: string;
+  tagLine: string;
+  games: number;
+  wins: number;
+  /** Their most recent champion with this player. */
+  championKey: string;
+  championName: string;
+}
+
+/**
+ * People who were on this player's team more than once, most games first:
+ * the friends they queue with. Remakes and modes with teams larger than
+ * five are left out.
+ */
+export function playedWith(matches: MatchSummary[], minGames = 2): Teammate[] {
+  const byPuuid = new Map<string, Teammate>();
+  // Newest first, so the first sighting carries the current name.
+  const newest = [...matches].sort((a, b) => b.endedAt - a.endedAt);
+  for (const m of newest) {
+    if (m.remake) continue;
+    const team = m.teams.find((t) => t.participants.some((p) => p.puuid === m.me.puuid));
+    if (!team || team.participants.length > 5) continue;
+    for (const p of team.participants) {
+      if (p.puuid === m.me.puuid || !p.puuid || !p.tagLine) continue;
+      const mate =
+        byPuuid.get(p.puuid) ??
+        byPuuid
+          .set(p.puuid, {
+            puuid: p.puuid,
+            gameName: p.gameName,
+            tagLine: p.tagLine,
+            games: 0,
+            wins: 0,
+            championKey: p.championKey,
+            championName: p.championName,
+          })
+          .get(p.puuid)!;
+      mate.games++;
+      if (m.me.win) mate.wins++;
+    }
+  }
+  return [...byPuuid.values()]
+    .filter((t) => t.games >= minGames)
+    .sort((a, b) => b.games - a.games || b.wins - a.wins);
+}

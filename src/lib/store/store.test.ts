@@ -38,6 +38,10 @@ const delta = (patch: string, extra: Partial<MatchDelta> = {}): MatchDelta => ({
     { champion: "Ahri", kind: "keystone", choice: "8112", win: true },
     { champion: "Zed", kind: "item", choice: "6692", win: false },
   ],
+  matchups: [
+    { champion: "Ahri", position: "MIDDLE", opponent: "Zed", win: true },
+    { champion: "Zed", position: "MIDDLE", opponent: "Ahri", win: false },
+  ],
   ...extra,
 });
 
@@ -81,7 +85,7 @@ function suite(name: string, make: () => Store) {
 
     it("keeps notes per player, newest first, and deletes them", async () => {
       const p = `noted-${run}`;
-      const base = { puuid: p, regionSlug: "euw", riotId: "Someone#EUW", author: "Anil" };
+      const base = { puuid: p, regionSlug: "euw", riotId: "Someone#EUW", author: "Anil", tags: [] };
       const first = await store.addNote({ ...base, body: "Plays safe early.", at: 1_000 });
       const second = await store.addNote({ ...base, author: "Mate", body: "Tilts after\nfirst death.", at: 2_000 });
       expect(first).not.toBe(second);
@@ -90,12 +94,34 @@ function suite(name: string, make: () => Store) {
       expect(notes.map((n) => n.body)).toEqual(["Tilts after\nfirst death.", "Plays safe early."]);
       expect(notes[0]).toMatchObject({ author: "Mate", riotId: "Someone#EUW", regionSlug: "euw", at: 2_000 });
 
-      expect(await store.noteCounts([p, "nobody"])).toEqual({ [p]: 2 });
-      expect(await store.noteCounts([])).toEqual({});
+      expect(await store.noteSummaries([p, "nobody"])).toEqual({ [p]: { count: 2, tags: [] } });
+      expect(await store.noteSummaries([])).toEqual({});
       expect(await store.deleteNote(first)).toBe(true);
       expect(await store.deleteNote(first)).toBe(false);
       expect(await store.deleteNote("not-a-number")).toBe(false);
       expect((await store.listNotes(p)).map((n) => n.id)).toEqual([second]);
+    });
+
+    it("keeps tags on notes and sums them up per player, most used first", async () => {
+      const p = `tagged-${run}`;
+      const base = { puuid: p, regionSlug: "euw", riotId: "Someone#EUW", author: "Anil" };
+      await store.addNote({ ...base, body: "", tags: ["toxic", "duo with Kaori"], at: 1_000 });
+      await store.addNote({ ...base, body: "Again.", tags: ["inter", "toxic"], at: 2_000 });
+      expect((await store.listNotes(p)).map((n) => n.tags)).toEqual([["inter", "toxic"], ["toxic", "duo with Kaori"]]);
+      expect(await store.noteSummaries([p])).toEqual({ [p]: { count: 2, tags: ["toxic", "duo with Kaori", "inter"] } });
+    });
+
+    it("pins players, updates a pin, and unpins", async () => {
+      const a = `pin-a-${run}`;
+      const b = `pin-b-${run}`;
+      await store.pinPlayer({ puuid: a, regionSlug: "euw", riotId: "A#EUW", pinnedBy: "Anil", at: 1_000 });
+      await store.pinPlayer({ puuid: b, regionSlug: "tr", riotId: "B#TR1", pinnedBy: "Mate", at: 2_000 });
+      await store.pinPlayer({ puuid: a, regionSlug: "euw", riotId: "A2#EUW", pinnedBy: "Mate", at: 3_000 });
+      const mine = (await store.listPinned()).filter((x) => x.puuid.endsWith(run));
+      expect(mine.map((x) => [x.puuid, x.riotId, x.at])).toEqual([[a, "A2#EUW", 1_000], [b, "B#TR1", 2_000]]);
+      expect(await store.unpinPlayer(a)).toBe(true);
+      expect(await store.unpinPlayer(a)).toBe(false);
+      expect((await store.listPinned()).some((x) => x.puuid === a)).toBe(false);
     });
 
     it("keeps feedback, newest first, and deletes it", async () => {
@@ -150,6 +176,11 @@ function suite(name: string, make: () => Store) {
 
       const patches = await store.patches();
       expect(patches.find((p) => p.patch === patch)?.matches).toBe(2);
+
+      expect(await store.championMatchups(patch, "Ahri")).toEqual([
+        { position: "MIDDLE", opponent: "Zed", games: 2, wins: 2 },
+      ]);
+      expect(await store.championMatchups(patch, "Nobody")).toEqual([]);
     });
 
     it("lists patches newest first", async () => {
@@ -213,5 +244,16 @@ describe("matchDelta", () => {
     expect(mine.find((p) => p.kind === "spells")?.choice).toBe([...me.spells].sort((a, b) => a - b).join("+"));
     expect(d.bans).toHaveLength(10);
     expect(d.patch).toBe(m.patch);
+  });
+
+  it("pairs each player with the enemy in the same position", () => {
+    const m = matches.find((x) => x.queueId === 420 && !x.remake)!;
+    const d = matchDelta(m, all)!;
+    expect(d.matchups).toHaveLength(10);
+    const [blue, red] = m.teams.map((t) => t.participants);
+    const mid = blue.find((p) => p.position === "MIDDLE")!;
+    const enemy = red.find((p) => p.position === "MIDDLE")!;
+    expect(d.matchups).toContainEqual({ champion: mid.championKey, position: "MIDDLE", opponent: enemy.championKey, win: mid.win });
+    expect(d.matchups).toContainEqual({ champion: enemy.championKey, position: "MIDDLE", opponent: mid.championKey, win: enemy.win });
   });
 });
