@@ -76,6 +76,26 @@ export interface ParticipantDto {
   placement?: number;
 }
 
+/** spectator-v5: a game in progress. */
+export interface CurrentGameDto {
+  gameMode?: string;
+  gameQueueConfigId?: number;
+  /** Epoch milliseconds; 0 until the loading screen is over. */
+  gameStartTime?: number;
+  bannedChampions?: { championId: number; teamId: number }[];
+  participants: {
+    puuid?: string | null;
+    /** "GameName#TAG" */
+    riotId?: string;
+    bot?: boolean;
+    teamId: number;
+    championId: number;
+    spell1Id?: number;
+    spell2Id?: number;
+    perks?: { perkIds?: number[]; perkSubStyle?: number };
+  }[];
+}
+
 export interface ObjectiveDto {
   kills?: number;
 }

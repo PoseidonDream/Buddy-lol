@@ -112,6 +112,33 @@ export interface MatchSummary {
   teams: TeamSummary[];
 }
 
+/** A player in a game that is still being played. */
+export interface LivePlayer {
+  /** Missing when the player hides their identity from spectators. */
+  puuid: string | null;
+  gameName: string;
+  tagLine: string;
+  championKey: string;
+  championName: string;
+  spells: [number, number];
+  keystone: number | null;
+  secondaryStyle: number | null;
+}
+
+export interface LiveTeam {
+  id: number;
+  players: LivePlayer[];
+  bans: { championKey: string; championName: string }[];
+}
+
+export interface LiveGame {
+  queueId: number;
+  gameMode: string;
+  /** Epoch milliseconds. `null` while the game is still on the loading screen. */
+  startedAt: number | null;
+  teams: LiveTeam[];
+}
+
 export interface Profile {
   /** "demo" means generated sample data, not a real account. */
   source: "live" | "demo";

@@ -15,6 +15,7 @@ import {
 } from "../game-data";
 import { collectItemNames } from "../item-names";
 import type {
+  LiveGame,
   MasteryEntry,
   MatchPage,
   MatchSummary,
@@ -92,6 +93,8 @@ interface Persona {
   /** Which ranked queues the player takes part in. Unranked queues get no games. */
   playsSolo: boolean;
   playsFlex: boolean;
+  /** Whether the profile shows a game in progress. */
+  inGame: boolean;
 }
 
 function championsFor(position: Position): Champ[] {
@@ -118,6 +121,7 @@ function persona(regionSlug: string, gameName: string, tagLine: string, defaultT
     skill: rng.range(0.44, 0.6),
     playsSolo: rng.chance(0.92),
     playsFlex: rng.chance(0.6),
+    inGame: rng.chance(0.4),
   };
 }
 
@@ -234,22 +238,8 @@ function buildTeam(
   };
 }
 
-function buildMatch(me: Persona, index: number, anchor: number): MatchSummary {
-  const rng = new Rng(`${me.seed}:match:${index}`);
-
-  // Mostly solo queue, with some flex, normals and ARAM. A queue the player
-  // has no rank in is swapped for normals, so history and rank cards agree.
-  const rolled = [420, 420, 420, 420, 420, 420, 440, 400, 400, 450][rng.int(0, 9)];
-  const queueId =
-    (rolled === 420 && !me.playsSolo) || (rolled === 440 && !me.playsFlex) ? 400 : rolled;
-  const aram = queueId === 450;
-  const remake = !aram && rng.chance(0.03);
-  const minutes = remake ? rng.range(3.1, 4.4) : aram ? rng.range(14, 24) : rng.range(19, 41);
-  const win = rng.chance(me.skill);
-
-  // Roughly four games a day, clustered in sessions.
-  const endedAt = anchor - Math.floor(index / 4) * DAY_MS - (index % 4) * rng.range(45, 70) * 60_000 - rng.range(0, 30) * 60_000;
-
+/** Ten players and their champions, five a side, with the persona among them. */
+function lobby(rng: Rng, me: Persona, aram: boolean): { mySide: number; seats: [Seat[], Seat[]] } {
   const myRole: Position = rng.chance(0.78) ? me.mainRole : me.offRole;
   const myPool = me.pool.filter((c) => c.position === myRole);
   const myChamp = aram ? rng.pick(CHAMPION_POOL) : myPool[rng.weighted(myPool.map((_, i) => 1 / (i + 1)))];
@@ -274,16 +264,37 @@ function buildMatch(me: Persona, index: number, anchor: number): MatchSummary {
     };
   };
 
+  const side = (teamId: number, t: number) => POSITIONS.map((role, i) => seatFor(teamId, role, t * 5 + i));
+  return { mySide, seats: [side(100, 0), side(200, 1)] };
+}
+
+function buildMatch(me: Persona, index: number, anchor: number): MatchSummary {
+  const rng = new Rng(`${me.seed}:match:${index}`);
+
+  // Mostly solo queue, with some flex, normals and ARAM. A queue the player
+  // has no rank in is swapped for normals, so history and rank cards agree.
+  const rolled = [420, 420, 420, 420, 420, 420, 440, 400, 400, 450][rng.int(0, 9)];
+  const queueId =
+    (rolled === 420 && !me.playsSolo) || (rolled === 440 && !me.playsFlex) ? 400 : rolled;
+  const aram = queueId === 450;
+  const remake = !aram && rng.chance(0.03);
+  const minutes = remake ? rng.range(3.1, 4.4) : aram ? rng.range(14, 24) : rng.range(19, 41);
+  const win = rng.chance(me.skill);
+
+  // Roughly four games a day, clustered in sessions.
+  const endedAt = anchor - Math.floor(index / 4) * DAY_MS - (index % 4) * rng.range(45, 70) * 60_000 - rng.range(0, 30) * 60_000;
+
+  const { mySide, seats } = lobby(rng, me, aram);
+
   const killPace = aram ? 1.9 : 0.85;
   const winnerKills = remake ? rng.int(0, 2) : Math.round(minutes * killPace * rng.range(0.85, 1.3));
   const loserKills = remake ? rng.int(0, 2) : Math.round(minutes * killPace * rng.range(0.45, 0.9));
 
   const teams = [100, 200].map((teamId, t) => {
     const teamWin = (teamId === mySide) === win;
-    const seats = POSITIONS.map((role, i) => seatFor(teamId, role, t * 5 + i));
     return buildTeam(
       rng,
-      seats,
+      seats[t],
       teamId,
       teamWin,
       teamWin ? winnerKills : loserKills,
@@ -422,4 +433,47 @@ export function demoMatches(
 ): MatchPage {
   const me = persona(region.slug, gameName, tagLine, region.defaultTag);
   return matchPage(me, start, count, now, filter);
+}
+
+/** A game in progress for some sample players, `null` for the rest. */
+export function demoLiveGame(
+  region: { slug: string; defaultTag: string },
+  gameName: string,
+  tagLine: string,
+  now: number,
+): LiveGame | null {
+  const me = persona(region.slug, gameName, tagLine, region.defaultTag);
+  if (!me.inGame) return null;
+
+  const rng = new Rng(`${me.seed}:live`);
+  const { seats } = lobby(rng, me, false);
+  const picked = new Set(seats.flat().map((s) => s.champ.key));
+  const bannable = rng.shuffle(CHAMPION_POOL.filter((c) => !picked.has(c.key)));
+
+  // The clock runs for 40 minutes and then a "new" game begins.
+  const cycle = 40 * 60_000;
+  const startedAt = Math.floor(now / cycle) * cycle + rng.int(0, 4) * 60_000;
+
+  return {
+    queueId: me.playsSolo ? 420 : 400,
+    gameMode: "CLASSIC",
+    startedAt: startedAt > now ? startedAt - cycle : startedAt,
+    teams: seats.map((team, t) => ({
+      id: t === 0 ? 100 : 200,
+      players: team.map((seat) => {
+        const build = BUILDS[archetypeOf(seat.champ)];
+        return {
+          puuid: seat.puuid,
+          gameName: seat.gameName,
+          tagLine: seat.tagLine,
+          championKey: seat.champ.key,
+          championName: seat.champ.name,
+          spells: rng.pick(SPELLS_BY_ROLE[seat.role ?? "MIDDLE"]),
+          keystone: rng.pick(build.keystones),
+          secondaryStyle: rng.pick(build.secondary),
+        };
+      }),
+      bans: bannable.slice(t * 5, t * 5 + 5).map((c) => ({ championKey: c.key, championName: c.name })),
+    })),
+  };
 }

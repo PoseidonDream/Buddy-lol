@@ -68,7 +68,7 @@ export function Loadout({
   assetVersion,
   size = "size-6",
 }: {
-  player: ParticipantSummary;
+  player: Pick<ParticipantSummary, "spells" | "keystone" | "secondaryStyle">;
   assetVersion: string;
   size?: string;
 }) {
@@ -106,7 +106,7 @@ export function PlayerLink({
   regionSlug,
   className = "",
 }: {
-  player: ParticipantSummary;
+  player: Pick<ParticipantSummary, "gameName" | "tagLine">;
   regionSlug: string;
   className?: string;
 }) {

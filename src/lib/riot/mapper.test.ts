@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mapMatch, mapRanked } from "./mapper";
+import { mapLiveGame, mapMatch, mapRanked } from "./mapper";
 import type { MatchDto, ParticipantDto } from "./types";
 
 const champion = (id: number, apiName?: string) => ({
@@ -140,5 +140,53 @@ describe("mapRanked", () => {
 
   it("ignores entries with a tier it does not know", () => {
     expect(mapRanked([{ queueType: "RANKED_SOLO_5x5", tier: "MYTHIC", rank: "I", leaguePoints: 0, wins: 0, losses: 0 }])).toEqual([]);
+  });
+});
+
+describe("mapLiveGame", () => {
+  const game = mapLiveGame(
+    {
+      gameMode: "CLASSIC",
+      gameQueueConfigId: 420,
+      gameStartTime: 1_700_000_000_000,
+      bannedChampions: [
+        { championId: 55, teamId: 100 },
+        { championId: -1, teamId: 100 },
+        { championId: 99, teamId: 200 },
+      ],
+      participants: [
+        { puuid: "a", riotId: "Hide on bush#KR1", teamId: 100, championId: 103, spell1Id: 4, spell2Id: 14, perks: { perkIds: [8112, 8139], perkSubStyle: 8200 } },
+        { puuid: null, riotId: "", teamId: 200, championId: 64 },
+        { riotId: "Annie Bot", bot: true, teamId: 200, championId: 1 },
+      ],
+    },
+    champion,
+  );
+
+  it("splits players into sides and reads their loadout", () => {
+    expect(game.teams.map((t) => t.id)).toEqual([100, 200]);
+    expect(game.teams[0].players[0]).toMatchObject({
+      puuid: "a",
+      gameName: "Hide on bush",
+      tagLine: "KR1",
+      spells: [4, 14],
+      keystone: 8112,
+      secondaryStyle: 8200,
+    });
+    expect(game).toMatchObject({ queueId: 420, startedAt: 1_700_000_000_000 });
+  });
+
+  it("copes with hidden players and bots", () => {
+    expect(game.teams[1].players[0]).toMatchObject({ puuid: null, gameName: "Hidden player", tagLine: "", keystone: null });
+    expect(game.teams[1].players[1]).toMatchObject({ gameName: "Annie Bot", tagLine: "" });
+  });
+
+  it("skips empty ban slots", () => {
+    expect(game.teams[0].bans).toHaveLength(1);
+    expect(game.teams[1].bans).toHaveLength(1);
+  });
+
+  it("treats a zero start time as still loading", () => {
+    expect(mapLiveGame({ gameStartTime: 0, participants: [] }, champion).startedAt).toBeNull();
   });
 });

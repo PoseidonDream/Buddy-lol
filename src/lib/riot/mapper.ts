@@ -3,6 +3,8 @@
 import { POSITIONS, TIERS } from "../game-data";
 import { ratePlayers } from "../score";
 import type {
+  LiveGame,
+  LiveTeam,
   MasteryEntry,
   MatchSummary,
   ParticipantSummary,
@@ -13,6 +15,7 @@ import type {
   Tier,
 } from "../types";
 import type {
+  CurrentGameDto,
   LeagueEntryDto,
   MasteryDto,
   MatchDto,
@@ -176,5 +179,46 @@ export function mapMatch(
     patch: patchOf(info.gameVersion),
     me,
     teams: ordered,
+  };
+}
+
+export function mapLiveGame(dto: CurrentGameDto, champion: ChampionLookup): LiveGame {
+  const teams = new Map<number, LiveTeam>();
+  const teamFor = (id: number) => {
+    let team = teams.get(id);
+    if (!team) {
+      team = { id, players: [], bans: [] };
+      teams.set(id, team);
+    }
+    return team;
+  };
+
+  for (const p of dto.participants) {
+    const c = champion(p.championId);
+    const hash = p.riotId?.lastIndexOf("#") ?? -1;
+    teamFor(p.teamId).players.push({
+      puuid: p.puuid || null,
+      gameName: hash > 0 ? p.riotId!.slice(0, hash) : p.riotId || (p.bot ? "Bot" : "Hidden player"),
+      tagLine: hash > 0 ? p.riotId!.slice(hash + 1) : "",
+      championKey: c.key,
+      championName: c.name,
+      spells: [p.spell1Id ?? 0, p.spell2Id ?? 0],
+      keystone: p.perks?.perkIds?.[0] ?? null,
+      secondaryStyle: p.perks?.perkSubStyle ?? null,
+    });
+  }
+
+  for (const ban of dto.bannedChampions ?? []) {
+    // -1 means that player chose not to ban.
+    if (ban.championId <= 0) continue;
+    const c = champion(ban.championId);
+    teamFor(ban.teamId).bans.push({ championKey: c.key, championName: c.name });
+  }
+
+  return {
+    queueId: dto.gameQueueConfigId ?? 0,
+    gameMode: dto.gameMode ?? "",
+    startedAt: dto.gameStartTime ? dto.gameStartTime : null,
+    teams: [...teams.values()].sort((a, b) => a.id - b.id),
   };
 }

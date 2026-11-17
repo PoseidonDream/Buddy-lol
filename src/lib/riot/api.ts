@@ -5,6 +5,7 @@ import type { Region } from "../regions";
 import { riotGet } from "./client";
 import type {
   AccountDto,
+  CurrentGameDto,
   LeagueEntryDto,
   MasteryDto,
   MatchDto,
@@ -61,6 +62,15 @@ export function getMatchIds(
     region.matchRoute,
     `/lol/match/v5/matches/by-puuid/${enc(puuid)}/ids?start=${start}&count=${count}${narrowed}`,
     MINUTE,
+  );
+}
+
+/** The game the player is in right now. Resolves to `null` when they are not in one. */
+export function getActiveGame(region: Region, puuid: string) {
+  return riotGet<CurrentGameDto>(
+    region.platform,
+    `/lol/spectator/v5/active-games/by-summoner/${enc(puuid)}`,
+    30,
   );
 }
 
