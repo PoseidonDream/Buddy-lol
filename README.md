@@ -53,6 +53,8 @@ All optional except the key. See `.env.example`.
 | `COLLECT_REGIONS`   | Regions the collector visits, comma separated. Default `euw`.               |
 | `BUDDY_DATA_FILE`   | Where to keep the JSON file when there is no database.                      |
 | `CONTACT_URL`       | Where the privacy page sends questions, e.g. `mailto:you@example.com`.     |
+| `NOTES_PASSWORD`    | Turns on private player notes; anyone with this password can read and write them. |
+| `RIOT_VERIFICATION_CODE` | The code Riot asks you to host at `/riot.txt` when applying for a production key. |
 | `RATE_LIMIT_PER_MINUTE` | Lookups one visitor may make per minute. Default 10.                    |
 | `RATE_LIMIT_PER_HOUR`   | Lookups one visitor may make per hour. Default 100.                     |
 | `RIOT_API_BASE_URL` | Send Riot calls elsewhere (a caching proxy, a local stub).                  |
@@ -80,6 +82,16 @@ scoreboard.
 **The score** measures each stat against the best in the game, weighted by role
 (supports are judged on vision and involvement rather than farm). It is our own
 heuristic, not something Riot publishes. See `src/lib/score.ts`.
+
+**The live game** shows, for each player, their solo rank (flex if they have
+no solo rank), LP, season win rate and mastery on the champion they picked,
+plus each team's average rank. That costs two extra Riot requests per player.
+
+**Notes** are private notes on players for the people running the site. Set
+`NOTES_PASSWORD`; whoever enters it (with their name) can read, add and delete
+notes on any profile, and the live game marks players who have notes. Without
+the password nobody sees the notes or even the panel. Notes are stored in the
+same database as everything else.
 
 **The tier list** grades champions on win rate pulled toward 50% by a hundred
 games, so a champion needs both a good record and enough games to rank highly.

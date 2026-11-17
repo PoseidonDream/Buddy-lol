@@ -7,6 +7,7 @@ import type {
   MatchDelta,
   PatchTotal,
   PickKind,
+  PlayerNote,
   RankSnapshot,
   Store,
 } from "./types";
@@ -47,6 +48,16 @@ create table if not exists champion_bans (
   bans integer not null,
   primary key (patch, champion)
 );
+create table if not exists player_notes (
+  id bigserial primary key,
+  puuid text not null,
+  region text not null,
+  riot_id text not null,
+  author text not null,
+  body text not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists player_notes_puuid on player_notes (puuid);
 create table if not exists rate_hits (
   bucket text not null,
   window_start bigint not null,
@@ -153,6 +164,53 @@ export class PostgresStore implements Store {
         snapshots.map((s) => s.at),
       ],
     );
+  }
+
+  async addNote(n: Omit<PlayerNote, "id">) {
+    await this.schema();
+    const { rows } = await this.pool.query(
+      `insert into player_notes (puuid, region, riot_id, author, body, created_at)
+       values ($1, $2, $3, $4, $5, to_timestamp($6 / 1000.0)) returning id`,
+      [n.puuid, n.regionSlug, n.riotId, n.author, n.body, n.at],
+    );
+    return String(rows[0].id);
+  }
+
+  async listNotes(puuid: string) {
+    await this.schema();
+    const { rows } = await this.pool.query(
+      `select id, puuid, region, riot_id, author, body, extract(epoch from created_at) * 1000 as at
+       from player_notes where puuid = $1 order by created_at desc, id desc`,
+      [puuid],
+    );
+    return rows.map(
+      (r): PlayerNote => ({
+        id: String(r.id),
+        puuid: r.puuid,
+        regionSlug: r.region,
+        riotId: r.riot_id,
+        author: r.author,
+        body: r.body,
+        at: Math.round(Number(r.at)),
+      }),
+    );
+  }
+
+  async deleteNote(id: string) {
+    if (!/^\d{1,18}$/.test(id)) return false;
+    await this.schema();
+    const result = await this.pool.query("delete from player_notes where id = $1", [id]);
+    return (result.rowCount ?? 0) > 0;
+  }
+
+  async noteCounts(puuids: string[]) {
+    if (puuids.length === 0) return {};
+    await this.schema();
+    const { rows } = await this.pool.query(
+      "select puuid, count(*)::int as n from player_notes where puuid = any($1::text[]) group by puuid",
+      [puuids],
+    );
+    return Object.fromEntries(rows.map((r) => [r.puuid as string, r.n as number]));
   }
 
   async pruneRanks(before: number) {

@@ -4,12 +4,15 @@ import { after, connection } from "next/server";
 import { Suspense } from "react";
 import { DemoBanner } from "@/components/DemoBanner";
 import { SiteHeader } from "@/components/SiteHeader";
+import { NotesPanel } from "@/components/notes/NotesPanel";
 import { LiveGameCard } from "@/components/profile/LiveGameCard";
 import { RankHistoryChart } from "@/components/profile/RankHistoryChart";
 import { ProfileProblem } from "@/components/profile/ProfileProblem";
 import { ProfileSkeleton } from "@/components/profile/ProfileSkeleton";
 import { ProfileView } from "@/components/profile/ProfileView";
 import { getLiveGame } from "@/lib/live";
+import { currentWriter } from "@/lib/notes-auth";
+import { getStore } from "@/lib/store";
 import { MATCH_PAGE_SIZE, getProfile } from "@/lib/profile";
 import { getRankHistory } from "@/lib/rank-history";
 import { LIMIT_MESSAGE, clientIp, takeLookups } from "@/lib/rate-limit";
@@ -98,6 +101,11 @@ async function ProfileSection({ params }: Pick<Props, "params">) {
               <RankHistorySection profile={profile} />
             </Suspense>
           }
+          notes={
+            <Suspense fallback={null}>
+              <NotesPanel profile={profile} />
+            </Suspense>
+          }
         />
       </main>
     </>
@@ -112,6 +120,16 @@ async function RankHistorySection({ profile }: { profile: Profile }) {
 async function LiveGame({ profile }: { profile: Profile }) {
   const game = await getLiveGame(profile);
   if (!game) return null;
+
+  // People who have unlocked notes see which players they've noted before.
+  let noteCounts: Record<string, number> = {};
+  if (await currentWriter()) {
+    const puuids = game.teams.flatMap((t) => t.players.flatMap((p) => (p.puuid ? [p.puuid] : [])));
+    noteCounts = await getStore()
+      .noteCounts(puuids)
+      .catch(() => ({}));
+  }
+
   return (
     <LiveGameCard
       game={game}
@@ -119,6 +137,7 @@ async function LiveGame({ profile }: { profile: Profile }) {
       regionSlug={profile.regionSlug}
       assetVersion={profile.assetVersion}
       fetchedAt={profile.generatedAt}
+      noteCounts={noteCounts}
     />
   );
 }

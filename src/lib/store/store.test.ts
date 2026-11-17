@@ -79,6 +79,25 @@ function suite(name: string, make: () => Store) {
       expect(await store.rankHistory(a, "RANKED_FLEX_SR", 0)).toHaveLength(1);
     });
 
+    it("keeps notes per player, newest first, and deletes them", async () => {
+      const p = `noted-${run}`;
+      const base = { puuid: p, regionSlug: "euw", riotId: "Someone#EUW", author: "Anil" };
+      const first = await store.addNote({ ...base, body: "Plays safe early.", at: 1_000 });
+      const second = await store.addNote({ ...base, author: "Mate", body: "Tilts after\nfirst death.", at: 2_000 });
+      expect(first).not.toBe(second);
+
+      const notes = await store.listNotes(p);
+      expect(notes.map((n) => n.body)).toEqual(["Tilts after\nfirst death.", "Plays safe early."]);
+      expect(notes[0]).toMatchObject({ author: "Mate", riotId: "Someone#EUW", regionSlug: "euw", at: 2_000 });
+
+      expect(await store.noteCounts([p, "nobody"])).toEqual({ [p]: 2 });
+      expect(await store.noteCounts([])).toEqual({});
+      expect(await store.deleteNote(first)).toBe(true);
+      expect(await store.deleteNote(first)).toBe(false);
+      expect(await store.deleteNote("not-a-number")).toBe(false);
+      expect((await store.listNotes(p)).map((n) => n.id)).toEqual([second]);
+    });
+
     it("counts hits per window", async () => {
       const bucket = `rl-${run}`;
       expect(await store.countHits(bucket, 60_000, 1)).toBe(1);

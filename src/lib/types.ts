@@ -164,11 +164,16 @@ export interface LivePlayer {
   puuid: string | null;
   gameName: string;
   tagLine: string;
+  championId: number;
   championKey: string;
   championName: string;
   spells: [number, number];
   keystone: number | null;
   secondaryStyle: number | null;
+  /** Solo rank, or flex if they have no solo rank. `null` if unranked or unknown. */
+  rank: RankedEntry | null;
+  /** Mastery on the champion they are playing. `null` if unknown. */
+  mastery: { level: number; points: number } | null;
 }
 
 export interface LiveTeam {

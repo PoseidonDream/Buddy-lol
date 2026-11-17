@@ -166,6 +166,9 @@ describe("mapLiveGame", () => {
   it("splits players into sides and reads their loadout", () => {
     expect(game.teams.map((t) => t.id)).toEqual([100, 200]);
     expect(game.teams[0].players[0]).toMatchObject({
+      championId: 103,
+      rank: null,
+      mastery: null,
       puuid: "a",
       gameName: "Hide on bush",
       tagLine: "KR1",
