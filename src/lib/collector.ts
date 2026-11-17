@@ -8,6 +8,7 @@ import { RiotApiError } from "./riot/client";
 import { mapMatch } from "./riot/mapper";
 import { matchDelta } from "./store/delta";
 import { getStore } from "./store";
+import type { RankSnapshot } from "./store/types";
 import type { ApexTier } from "./types";
 
 export interface CollectReport {
@@ -75,10 +76,12 @@ export async function collect(
     for (const tier of ["challenger", "grandmaster"] as ApexTier[]) {
       if (!spend()) return report;
       const league = await getApexLeague(region, tier, "RANKED_SOLO_5x5");
+      const at = Date.now();
+      const snapshots: RankSnapshot[] = [];
       for (const e of league?.entries ?? []) {
         if (!e.puuid) continue;
         players.push(e.puuid);
-        await store.recordRank({
+        snapshots.push({
           puuid: e.puuid,
           regionSlug: region.slug,
           queue: "RANKED_SOLO_5x5",
@@ -87,10 +90,13 @@ export async function collect(
           lp: e.leaguePoints,
           wins: e.wins,
           losses: e.losses,
-          at: Date.now(),
+          at,
         });
-        report.ranksRecorded++;
       }
+      // One write for the whole list: a Challenger and Grandmaster ladder is
+      // about a thousand players.
+      await store.recordRanks(snapshots);
+      report.ranksRecorded += snapshots.length;
     }
 
     // A different slice of the ladder each run, so repeated runs spread out.

@@ -63,6 +63,22 @@ function suite(name: string, make: () => Store) {
       expect(history[0]).toMatchObject({ tier: "GOLD", division: "II", regionSlug: "euw", wins: 1000 });
     });
 
+    it("records a batch of ranks with the same rule", async () => {
+      const a = `a-${run}`;
+      const b = `b-${run}`;
+      await store.recordRanks([]);
+      await store.recordRanks([snap(1, 1000, { puuid: a, wins: 1 }), snap(2, 1000, { puuid: b, wins: 1 })]);
+      // a unchanged (skipped), b changed (kept), and a new queue for a (kept).
+      await store.recordRanks([
+        snap(1, 2000, { puuid: a, wins: 1 }),
+        snap(9, 2000, { puuid: b, wins: 2 }),
+        snap(5, 2000, { puuid: a, wins: 1, queue: "RANKED_FLEX_SR" }),
+      ]);
+      expect((await store.rankHistory(a, "RANKED_SOLO_5x5", 0)).map((s) => s.lp)).toEqual([1]);
+      expect((await store.rankHistory(b, "RANKED_SOLO_5x5", 0)).map((s) => s.lp)).toEqual([2, 9]);
+      expect(await store.rankHistory(a, "RANKED_FLEX_SR", 0)).toHaveLength(1);
+    });
+
     it("counts each match once", async () => {
       const d = delta(patch);
       expect(await store.recordMatch(d)).toBe(true);

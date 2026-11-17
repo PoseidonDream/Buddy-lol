@@ -106,6 +106,10 @@ export class MemoryStore implements Store {
     this.scheduleSave();
   }
 
+  async recordRanks(snapshots: RankSnapshot[]) {
+    for (const s of snapshots) await this.recordRank(s);
+  }
+
   async rankHistory(puuid: string, queue: RankedQueue, since: number) {
     await this.loaded;
     return (this.data.ranks[`${puuid}|${queue}`] ?? []).filter((s) => s.at >= since);
