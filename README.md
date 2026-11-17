@@ -51,10 +51,14 @@ production key, which Riot grants after reviewing the app.
 A profile shows:
 
 - Solo/Duo and Flex rank, LP and season win rate
-- A summary of the loaded games: win rate, KDA, kill participation, CS per minute, roles played
-- Match history, 10 games at a time, filterable by queue. Each game expands into a
-  scoreboard with damage, gold, CS, vision and items for all ten players
+- A summary of the loaded games: win rate, recent form, KDA, kill participation,
+  CS per minute, roles played
+- Match history, 10 games at a time, filterable by queue (each filter shows how
+  many games it holds). Each game expands into a scoreboard with damage, gold,
+  CS, vision and items for all ten players
+- Tags on a game for multi-kills, the most damage dealt and a deathless game
 - Win rate and KDA per champion over those games, and top champion mastery
+- Item, spell, rune and champion names as tooltips
 
 ## How it is put together
 
@@ -82,6 +86,8 @@ Things worth knowing before changing it:
 - **Caching is per Riot request**, through Next's `fetch` cache: finished matches
   for 30 days, rank and summoner data for 2 minutes, match lists for 1 minute.
   Pressing *Update* re-renders the profile and refetches whatever has expired.
+- **Rate limits.** A call that hits the per-second limit waits and retries once.
+  Hitting the two-minute limit shows a "Too many lookups" page instead.
 - **Riot's routing is two-level.** Summoner, league and mastery endpoints live on
   a platform host (`euw1`); account and match endpoints on a regional one
   (`europe`). `regions.ts` holds the mapping.
@@ -89,19 +95,29 @@ Things worth knowing before changing it:
   the data streamed in behind `<Suspense>`. The framework docs that match the
   installed version are in `node_modules/next/dist/docs/`.
 - **Images come from Riot's Data Dragon CDN** and fall back to a text tile if one
-  fails to load.
+  fails to load. Champion and item names come from Data Dragon too, with small
+  built-in tables in `game-data.ts` as a fallback.
 
 ## Not built yet
 
-Ideas for where to take it next:
+Ideas for where to take it next, roughly easiest first:
 
-- Live game lookup (spectator API)
-- Server-side queue filtering, so "Ranked Solo" pages through ranked games only
-  instead of filtering what is already loaded
-- Champion pages, tier lists and builds, which need match data collected over time
-  rather than fetched per request
-- LP history, which Riot does not expose and so needs a database and periodic snapshots
-- A shared cache (Redis or similar) if this runs on more than one server
+- **Live game.** Whether the player is in a game right now, and who with
+  (spectator API). One more request per profile.
+- **Leaderboards.** Challenger, Grandmaster and Master ladders per region
+  (league API). No database needed.
+- **Queue filters that reach back in time.** Ask Riot for ranked games only,
+  instead of filtering the games already loaded.
+- **Multi-search.** Paste a champion-select lobby and see all five players.
+- **A performance score per game** (the "MVP / ACE" badge other sites show).
+- **Favourites**, kept in the browser like the recently viewed list.
+- **Other languages.** Data Dragon serves names in most of them.
+- **LP history graph.** Riot does not expose past LP, so this needs a database
+  and a scheduled job that records each tracked player's rank.
+- **Champion pages, tier lists and builds.** These need match data collected
+  across many players over time, not fetched per request.
+- **A shared cache** (Redis or similar) once this runs on more than one server,
+  and a CI workflow that runs lint, tests and a build on every pull request.
 
 ## Legal
 
