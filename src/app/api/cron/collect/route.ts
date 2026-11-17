@@ -1,3 +1,4 @@
+import { timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { collect } from "@/lib/collector";
 import { getRegion } from "@/lib/regions";
@@ -5,6 +6,16 @@ import { RiotApiError, riotApiKey } from "@/lib/riot/client";
 import { getStore } from "@/lib/store";
 
 export const maxDuration = 60;
+
+/** Compare secrets in constant time, so response timing reveals nothing about them. */
+function sameText(given: string, expected: string): boolean {
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/** Rank history older than this is deleted on each run. */
+const KEEP_RANKS_DAYS = 180;
 
 /**
  * GET /api/cron/collect?region=euw&budget=80
@@ -16,7 +27,7 @@ export const maxDuration = 60;
 export async function GET(request: NextRequest) {
   const secret = process.env.CRON_SECRET?.trim();
   const authorized = secret
-    ? request.headers.get("authorization") === `Bearer ${secret}`
+    ? sameText(request.headers.get("authorization") ?? "", `Bearer ${secret}`)
     : process.env.NODE_ENV === "development";
   if (!authorized) {
     return Response.json(
@@ -41,7 +52,9 @@ export async function GET(request: NextRequest) {
   const budget = Math.floor(Math.min(500, Math.max(1, Number.isFinite(raw) ? raw : 80)) / regions.length);
 
   const reports = [];
+  let pruned = 0;
   try {
+    pruned = await getStore().pruneRanks(Date.now() - KEEP_RANKS_DAYS * 24 * 60 * 60 * 1000);
     for (const region of regions) reports.push(await collect(region, { budget }));
   } catch (err) {
     const keyRejected = err instanceof RiotApiError && (err.status === 401 || err.status === 403);
@@ -57,5 +70,5 @@ export async function GET(request: NextRequest) {
       { status: keyRejected ? 502 : 500 },
     );
   }
-  return Response.json({ ok: true, store: getStore().kind, reports });
+  return Response.json({ ok: true, store: getStore().kind, ranksPruned: pruned, reports });
 }

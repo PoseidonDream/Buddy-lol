@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { after, connection } from "next/server";
 import { Suspense } from "react";
 import { DemoBanner } from "@/components/DemoBanner";
@@ -11,6 +12,7 @@ import { ProfileView } from "@/components/profile/ProfileView";
 import { getLiveGame } from "@/lib/live";
 import { MATCH_PAGE_SIZE, getProfile } from "@/lib/profile";
 import { getRankHistory } from "@/lib/rank-history";
+import { LIMIT_MESSAGE, clientIp, takeLookups } from "@/lib/rate-limit";
 import { recordProfile } from "@/lib/record";
 import { getRegion } from "@/lib/regions";
 import { formatRiotId, riotIdFromSlug } from "@/lib/riot-id";
@@ -52,6 +54,16 @@ async function ProfileSection({ params }: Pick<Props, "params">) {
   // A profile is a live snapshot: always build it for the request at hand.
   // Riot API responses are cached individually, one level down.
   await connection();
+
+  const allowed = await takeLookups(clientIp(await headers()));
+  if (!allowed.ok) {
+    return (
+      <main className="mx-auto max-w-6xl px-4 py-16">
+        <ProfileProblem error={{ kind: "rate_limited" as const, message: LIMIT_MESSAGE }} />
+      </main>
+    );
+  }
+
   const result = await getProfile(region, riotId);
 
   if (!result.ok) {

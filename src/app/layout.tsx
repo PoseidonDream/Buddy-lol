@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Link from "next/link";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -43,6 +44,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <div className="flex-1">{children}</div>
         <footer className="border-t border-edge px-4 py-8">
+          <nav aria-label="Footer" className="mx-auto mb-3 max-w-6xl text-xs">
+            <Link href="/privacy" className="rounded text-soft hover:text-fg hover:underline">
+              Privacy
+            </Link>
+          </nav>
           <p className="mx-auto max-w-6xl text-xs leading-relaxed text-faint">
             Buddy.lol isn&apos;t endorsed by Riot Games and doesn&apos;t reflect
             the views or opinions of Riot Games or anyone officially involved in
