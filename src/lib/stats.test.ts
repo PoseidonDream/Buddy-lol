@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { formatDuration, formatKda, kdaRatio, timeAgo } from "./format";
-import { summarize } from "./stats";
+import { highlights, outcomeOf, summarize } from "./stats";
 import type { MatchSummary, ParticipantSummary } from "./types";
 
 function me(extra: Partial<ParticipantSummary>): ParticipantSummary {
@@ -80,5 +80,35 @@ describe("formatting", () => {
     expect(timeAgo(now - 3 * 3_600_000, now)).toBe("3h ago");
     expect(timeAgo(now - 2 * 86_400_000, now)).toBe("2d ago");
     expect(timeAgo(now + 60_000, now)).toBe("just now"); // clock skew
+  });
+});
+
+describe("highlights", () => {
+  const withRival = (mine: Partial<ParticipantSummary>, rivalDamage: number, extra: Partial<MatchSummary> = {}) => {
+    const m = game("h", mine, 20, extra);
+    m.teams[1].participants.push(me({ puuid: "rival", teamId: 200, damage: rivalDamage }));
+    return m;
+  };
+
+  it("flags the highest damage in the game", () => {
+    expect(highlights(withRival({ damage: 30_000, deaths: 3 }, 20_000))).toEqual(["Most damage"]);
+    expect(highlights(withRival({ damage: 10_000, deaths: 3 }, 20_000))).toEqual([]);
+  });
+
+  it("flags a deathless game only when the player was involved", () => {
+    expect(highlights(withRival({ kills: 4, assists: 6, deaths: 0, damage: 1 }, 20_000))).toEqual(["Deathless"]);
+    expect(highlights(withRival({ kills: 0, assists: 1, deaths: 0, damage: 1 }, 20_000))).toEqual([]);
+  });
+
+  it("says nothing about remakes", () => {
+    expect(highlights(withRival({ damage: 500, deaths: 0, kills: 9 }, 100, { remake: true }))).toEqual([]);
+  });
+});
+
+describe("outcomeOf", () => {
+  it("separates wins, losses and remakes", () => {
+    expect(outcomeOf(game("a", { win: true }, 1))).toBe("win");
+    expect(outcomeOf(game("b", { win: false }, 1))).toBe("loss");
+    expect(outcomeOf(game("c", { win: true }, 1, { remake: true }))).toBe("remake");
   });
 });

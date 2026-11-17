@@ -38,6 +38,8 @@ const QUEUES: Record<number, QueueInfo> = {
   1700: { name: "Arena", group: "other" },
   1710: { name: "Arena", group: "other" },
   1900: { name: "URF", group: "other" },
+  2300: { name: "Brawl", group: "other" },
+  2400: { name: "ARAM Mayhem", group: "aram" },
 };
 
 const MODE_NAMES: Record<string, string> = {
@@ -49,6 +51,10 @@ const MODE_NAMES: Record<string, string> = {
   ULTBOOK: "Ultimate Spellbook",
   ONEFORALL: "One for All",
   SWIFTPLAY: "Swiftplay",
+  BRAWL: "Brawl",
+  KIWI: "ARAM Mayhem",
+  STRAWBERRY: "Swarm",
+  RUBY: "Doom Bots",
 };
 
 export function queueName(queueId: number, gameMode = ""): string {
@@ -136,6 +142,74 @@ export const SPELLS: Record<number, { key: string; name: string }> = {
   32: { key: "SummonerSnowball", name: "Mark" },
   2201: { key: "SummonerCherryHold", name: "Flee" },
   2202: { key: "SummonerCherryFlash", name: "Flash" },
+};
+
+// ----------------------------------------------------------------- items
+
+/**
+ * Names for common items, used for tooltips when Data Dragon's item list
+ * cannot be fetched (and by the sample data, which only uses these).
+ */
+export const ITEM_NAMES: Record<number, string> = {
+  2052: "Poro-Snax",
+  2065: "Shurelya's Battlesong",
+  3006: "Berserker's Greaves",
+  3020: "Sorcerer's Shoes",
+  3026: "Guardian Angel",
+  3031: "Infinity Edge",
+  3036: "Lord Dominik's Regards",
+  3046: "Phantom Dancer",
+  3047: "Plated Steelcaps",
+  3053: "Sterak's Gage",
+  3065: "Spirit Visage",
+  3068: "Sunfire Aegis",
+  3071: "Black Cleaver",
+  3072: "Bloodthirster",
+  3074: "Ravenous Hydra",
+  3075: "Thornmail",
+  3078: "Trinity Force",
+  3083: "Warmog's Armor",
+  3085: "Runaan's Hurricane",
+  3089: "Rabadon's Deathcap",
+  3094: "Rapid Firecannon",
+  3100: "Lich Bane",
+  3102: "Banshee's Veil",
+  3107: "Redemption",
+  3110: "Frozen Heart",
+  3111: "Mercury's Treads",
+  3116: "Rylai's Crystal Scepter",
+  3135: "Void Staff",
+  3142: "Youmuu's Ghostblade",
+  3143: "Randuin's Omen",
+  3153: "Blade of the Ruined King",
+  3156: "Maw of Malmortius",
+  3157: "Zhonya's Hourglass",
+  3158: "Ionian Boots of Lucidity",
+  3165: "Morellonomicon",
+  3190: "Locket of the Iron Solari",
+  3222: "Mikael's Blessing",
+  3340: "Stealth Ward",
+  3363: "Farsight Alteration",
+  3364: "Oracle Lens",
+  3504: "Ardent Censer",
+  3742: "Dead Man's Plate",
+  3748: "Titanic Hydra",
+  3814: "Edge of Night",
+  3869: "Celestial Opposition",
+  3870: "Dream Maker",
+  3871: "Zaz'Zak's Realmspike",
+  3876: "Solstice Sleigh",
+  3877: "Bloodsong",
+  4005: "Imperial Mandate",
+  4401: "Force of Nature",
+  4645: "Shadowflame",
+  6333: "Death's Dance",
+  6617: "Moonstone Renewer",
+  6653: "Liandry's Torment",
+  6655: "Luden's Companion",
+  6672: "Kraken Slayer",
+  6692: "Eclipse",
+  6694: "Serylda's Grudge",
 };
 
 // ----------------------------------------------------------------- runes

@@ -5,7 +5,8 @@
  * player, and paging through match history is stable.
  */
 
-import { CHAMPION_POOL, POSITIONS, TIERS } from "../game-data";
+import { CHAMPION_POOL, ITEM_NAMES, POSITIONS, TIERS } from "../game-data";
+import { collectItemNames } from "../item-names";
 import type {
   MasteryEntry,
   MatchPage,
@@ -78,6 +79,9 @@ interface Persona {
   pool: Champ[];
   /** Chance to win any given game, 0.44 - 0.60. */
   skill: number;
+  /** Which ranked queues the player takes part in. Unranked queues get no games. */
+  playsSolo: boolean;
+  playsFlex: boolean;
 }
 
 function championsFor(position: Position): Champ[] {
@@ -102,6 +106,8 @@ function persona(regionSlug: string, gameName: string, tagLine: string, defaultT
     offRole,
     pool,
     skill: rng.range(0.44, 0.6),
+    playsSolo: rng.chance(0.92),
+    playsFlex: rng.chance(0.6),
   };
 }
 
@@ -218,7 +224,11 @@ function buildTeam(
 function buildMatch(me: Persona, index: number, anchor: number): MatchSummary {
   const rng = new Rng(`${me.seed}:match:${index}`);
 
-  const queueId = [420, 420, 420, 420, 420, 420, 440, 400, 400, 450][rng.int(0, 9)];
+  // Mostly solo queue, with some flex, normals and ARAM. A queue the player
+  // has no rank in is swapped for normals, so history and rank cards agree.
+  const rolled = [420, 420, 420, 420, 420, 420, 440, 400, 400, 450][rng.int(0, 9)];
+  const queueId =
+    (rolled === 420 && !me.playsSolo) || (rolled === 440 && !me.playsFlex) ? 400 : rolled;
   const aram = queueId === 450;
   const remake = !aram && rng.chance(0.03);
   const minutes = remake ? rng.range(3.1, 4.4) : aram ? rng.range(14, 24) : rng.range(19, 41);
@@ -289,12 +299,17 @@ function matchPage(me: Persona, start: number, count: number, now: number): Matc
   const end = Math.min(TOTAL_MATCHES, start + count);
   const matches: MatchSummary[] = [];
   for (let i = Math.max(0, start); i < end; i++) matches.push(buildMatch(me, i, anchor));
-  return { matches, hasMore: end < TOTAL_MATCHES };
+  return {
+    matches,
+    hasMore: end < TOTAL_MATCHES,
+    itemNames: collectItemNames(matches, (id) => ITEM_NAMES[id]),
+  };
 }
 
 // --------------------------------------------------------------- profile
 
-function rankedEntries(rng: Rng, skill: number): RankedEntry[] {
+function rankedEntries(rng: Rng, me: Persona): RankedEntry[] {
+  const { skill } = me;
   // Most players sit in the lower tiers; better win rates push upward.
   const weights = [6, 16, 22, 22, 14, 10, 6, 2, 1, 0.5];
   const shift = Math.round((skill - 0.5) * 20);
@@ -315,8 +330,9 @@ function rankedEntries(rng: Rng, skill: number): RankedEntry[] {
     };
   };
 
-  const entries = [entry("RANKED_SOLO_5x5", tierIndex, rng.int(60, 340))];
-  if (rng.chance(0.65)) {
+  const entries: RankedEntry[] = [];
+  if (me.playsSolo) entries.push(entry("RANKED_SOLO_5x5", tierIndex, rng.int(60, 340)));
+  if (me.playsFlex) {
     entries.push(entry("RANKED_FLEX_SR", tierIndex - rng.int(0, 2), rng.int(12, 90)));
   }
   return entries;
@@ -359,10 +375,11 @@ export function demoProfile(
     requestSlug: riotIdToSlug({ gameName, tagLine }),
     profileIconId: rng.int(0, 28),
     level: rng.int(42, 780),
-    ranked: rng.chance(0.92) ? rankedEntries(rng, me.skill) : [],
+    ranked: rankedEntries(rng, me),
     mastery: mastery(rng, me, now),
     matches: page.matches,
     hasMoreMatches: page.hasMore,
+    itemNames: page.itemNames,
     assetVersion,
     generatedAt: now,
   };

@@ -3,7 +3,7 @@
  * current, and which champion a numeric id refers to.
  */
 
-import { CHAMPION_POOL, type ChampionInfo } from "./game-data";
+import { CHAMPION_POOL, ITEM_NAMES, type ChampionInfo } from "./game-data";
 
 const BASE = "https://ddragon.leagueoflegends.com";
 
@@ -15,6 +15,8 @@ const HALF_DAY = 60 * 60 * 12;
 export interface StaticData {
   version: string;
   champion(id: number, apiName?: string): { key: string; name: string };
+  /** `undefined` for an item we have no name for. */
+  itemName(id: number): string | undefined;
 }
 
 async function getJson<T>(url: string): Promise<T | null> {
@@ -33,6 +35,10 @@ interface ChampionFile {
   data: Record<string, { id: string; key: string; name: string }>;
 }
 
+interface ItemFile {
+  data: Record<string, { name?: string }>;
+}
+
 const FALLBACK_CHAMPIONS = new Map<number, ChampionInfo>(
   CHAMPION_POOL.map((c) => [c.id, { id: c.id, key: c.key, name: c.name }]),
 );
@@ -41,9 +47,19 @@ export async function getStaticData(): Promise<StaticData> {
   const versions = await getJson<string[]>(`${BASE}/api/versions.json`);
   const version = versions?.[0] ?? FALLBACK_VERSION;
 
-  const file = await getJson<ChampionFile>(
-    `${BASE}/cdn/${version}/data/en_US/champion.json`,
+  const data = `${BASE}/cdn/${version}/data/en_US`;
+  const [file, itemFile] = await Promise.all([
+    getJson<ChampionFile>(`${data}/champion.json`),
+    getJson<ItemFile>(`${data}/item.json`),
+  ]);
+
+  const items = new Map<number, string>(
+    Object.entries(ITEM_NAMES).map(([id, name]) => [Number(id), name]),
   );
+  for (const [id, item] of Object.entries(itemFile?.data ?? {})) {
+    if (item.name) items.set(Number(id), item.name);
+  }
+
   const champions = new Map(FALLBACK_CHAMPIONS);
   for (const c of Object.values(file?.data ?? {})) {
     // In this file `key` is the numeric id and `id` is the string key.
@@ -53,6 +69,7 @@ export async function getStaticData(): Promise<StaticData> {
 
   return {
     version,
+    itemName: (id) => items.get(id),
     champion(id, apiName) {
       const known = champions.get(id);
       if (known) return { key: known.key, name: known.name };

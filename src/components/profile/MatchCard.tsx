@@ -11,18 +11,12 @@ import {
   timeAgo,
 } from "@/lib/format";
 import { queueName } from "@/lib/game-data";
-import type { MatchSummary } from "@/lib/types";
+import { highlights, outcomeOf, type Outcome } from "@/lib/stats";
+import type { ItemNames, MatchSummary } from "@/lib/types";
 import { GameIcon, initials } from "../GameIcon";
 import { MatchDetails } from "./MatchDetails";
 import { ItemRow, Loadout, PlayerLink } from "./MatchParts";
 import { kdaTone } from "./SummaryPanel";
-
-export type Outcome = "win" | "loss" | "remake";
-
-export function outcomeOf(match: MatchSummary): Outcome {
-  if (match.remake) return "remake";
-  return match.me.win ? "win" : "loss";
-}
 
 const OUTCOME_STYLE: Record<Outcome, { card: string; text: string; label: string }> = {
   win: { card: "border-l-win bg-win-wash", text: "text-win", label: "Victory" },
@@ -73,11 +67,13 @@ export function MatchCard({
   match,
   regionSlug,
   assetVersion,
+  itemNames,
   now,
 }: {
   match: MatchSummary;
   regionSlug: string;
   assetVersion: string;
+  itemNames: ItemNames;
   now: number;
 }) {
   const [open, setOpen] = useState(false);
@@ -88,6 +84,7 @@ export function MatchCard({
   const ratio = kdaRatio(me.kills, me.deaths, me.assists);
   const teamKills = match.teams.find((t) => t.id === me.teamId)?.kills ?? 0;
   const multiKill = MULTI_KILL_NAMES[me.largestMultiKill];
+  const tags = highlights(match);
   const detailsId = useId();
   const queue = queueName(match.queueId, match.gameMode);
   const result = me.placement ? `${ordinal(me.placement)} place` : style.label;
@@ -95,7 +92,7 @@ export function MatchCard({
   return (
     <li
       data-match={match.id}
-      className={`overflow-hidden rounded-xl border border-edge border-l-4 ${style.card}`}
+      className={`overflow-hidden rounded-xl border border-edge border-l-4 transition-shadow hover:ring-1 hover:ring-white/10 ${style.card}`}
     >
       <div className="flex items-center gap-3 p-3 sm:gap-4 sm:px-4">
         <div className="w-24 shrink-0 text-xs leading-relaxed max-sm:hidden">
@@ -162,11 +159,18 @@ export function MatchCard({
           </div>
 
           <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-            <ItemRow items={me.items} assetVersion={assetVersion} />
-            {multiKill && (
-              <span className="rounded-full bg-loss/20 px-2 py-0.5 text-[11px] font-medium text-loss">
-                {multiKill}
-              </span>
+            <ItemRow items={me.items} itemNames={itemNames} assetVersion={assetVersion} />
+            {(multiKill || tags.length > 0) && (
+              <ul className="flex flex-wrap gap-1.5 text-[11px] font-medium">
+                {multiKill && (
+                  <li className="rounded-full bg-gold/15 px-2 py-0.5 text-gold">{multiKill}</li>
+                )}
+                {tags.map((tag) => (
+                  <li key={tag} className="rounded-full bg-accent/15 px-2 py-0.5 text-accent">
+                    {tag}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </div>
@@ -195,7 +199,12 @@ export function MatchCard({
 
       {open && (
         <div id={detailsId} className="border-t border-edge bg-ink/40">
-          <MatchDetails match={match} regionSlug={regionSlug} assetVersion={assetVersion} />
+          <MatchDetails
+            match={match}
+            regionSlug={regionSlug}
+            assetVersion={assetVersion}
+            itemNames={itemNames}
+          />
         </div>
       )}
     </li>

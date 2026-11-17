@@ -59,3 +59,24 @@ describe("sample data", () => {
     }
   });
 });
+
+describe("sample data consistency", () => {
+  it("only has ranked games in queues the player holds a rank in", () => {
+    const queueOf = { RANKED_SOLO_5x5: 420, RANKED_FLEX_SR: 440 } as const;
+    const seen = { solo: 0, flex: 0, soloUnranked: 0, flexUnranked: 0 };
+
+    for (let i = 0; i < 40; i++) {
+      const profile = demoProfile(region, `Player ${i}`, "EUW", 60, "1.0.0", NOW);
+      const ranked = new Set<number>(profile.ranked.map((r) => queueOf[r.queue]));
+      for (const queue of [420, 440]) {
+        const games = profile.matches.filter((m) => m.queueId === queue).length;
+        if (!ranked.has(queue)) expect(games, `Player ${i}, queue ${queue}`).toBe(0);
+      }
+      seen[ranked.has(420) ? "solo" : "soloUnranked"]++;
+      seen[ranked.has(440) ? "flex" : "flexUnranked"]++;
+    }
+
+    // The sample should cover every case, or the check above proves nothing.
+    expect(Object.values(seen).every((n) => n > 0), JSON.stringify(seen)).toBe(true);
+  });
+});

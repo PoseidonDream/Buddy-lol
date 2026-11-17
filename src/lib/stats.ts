@@ -3,6 +3,31 @@
 import { POSITIONS } from "./game-data";
 import type { MatchSummary, Position } from "./types";
 
+export type Outcome = "win" | "loss" | "remake";
+
+export function outcomeOf(match: MatchSummary): Outcome {
+  if (match.remake) return "remake";
+  return match.me.win ? "win" : "loss";
+}
+
+/**
+ * Short labels for what stood out about the player's game. At most a couple
+ * per match, and none for remakes.
+ */
+export function highlights(match: MatchSummary): string[] {
+  if (match.remake) return [];
+  const { me } = match;
+  const out: string[] = [];
+
+  const everyone = match.teams.flatMap((t) => t.participants);
+  const topDamage = Math.max(...everyone.map((p) => p.damage));
+  if (me.damage > 0 && me.damage === topDamage) out.push("Most damage");
+
+  if (me.deaths === 0 && me.kills + me.assists >= 5) out.push("Deathless");
+
+  return out;
+}
+
 export interface ChampionStat {
   championKey: string;
   championName: string;

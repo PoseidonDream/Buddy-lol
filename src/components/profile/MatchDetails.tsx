@@ -1,6 +1,6 @@
 import { championIcon } from "@/lib/assets";
 import { formatCompact, formatKda, formatNumber, kdaRatio } from "@/lib/format";
-import type { MatchSummary, TeamSummary } from "@/lib/types";
+import type { ItemNames, MatchSummary, TeamSummary } from "@/lib/types";
 import { GameIcon, initials } from "../GameIcon";
 import { ItemRow, Loadout, PlayerLink } from "./MatchParts";
 import { kdaTone } from "./SummaryPanel";
@@ -15,10 +15,12 @@ export function MatchDetails({
   match,
   regionSlug,
   assetVersion,
+  itemNames,
 }: {
   match: MatchSummary;
   regionSlug: string;
   assetVersion: string;
+  itemNames: ItemNames;
 }) {
   const everyone = match.teams.flatMap((t) => t.participants);
   const topDamage = Math.max(1, ...everyone.map((p) => p.damage));
@@ -107,7 +109,12 @@ export function MatchDetails({
                         </div>
                       </td>
                       <td className="rounded-r-lg py-1 pr-2">
-                        <ItemRow items={p.items} assetVersion={assetVersion} size="size-6" />
+                        <ItemRow
+                          items={p.items}
+                          itemNames={itemNames}
+                          assetVersion={assetVersion}
+                          size="size-6"
+                        />
                       </td>
                     </tr>
                   );

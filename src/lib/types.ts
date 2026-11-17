@@ -30,6 +30,9 @@ export interface RankedEntry {
   hotStreak: boolean;
 }
 
+/** Item id -> display name. Items we have no name for are simply absent. */
+export type ItemNames = Record<number, string>;
+
 export interface MasteryEntry {
   championId: number;
   championKey: string;
@@ -120,6 +123,8 @@ export interface Profile {
   mastery: MasteryEntry[];
   matches: MatchSummary[];
   hasMoreMatches: boolean;
+  /** Names of the items that appear in `matches`, for tooltips. */
+  itemNames: ItemNames;
   /** Data Dragon version to load images from. */
   assetVersion: string;
   /** When this snapshot was built, epoch milliseconds. */
@@ -143,4 +148,6 @@ export type Result<T> = { ok: true; data: T } | { ok: false; error: ProfileError
 export interface MatchPage {
   matches: MatchSummary[];
   hasMore: boolean;
+  /** Names of the items that appear in `matches`, for tooltips. */
+  itemNames: ItemNames;
 }

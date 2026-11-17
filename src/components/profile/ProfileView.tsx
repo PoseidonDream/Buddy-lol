@@ -2,8 +2,15 @@
 
 import { useId, useMemo, useState } from "react";
 import { QUEUE_FILTERS, queueGroup, type QueueGroup } from "@/lib/game-data";
-import { summarize } from "@/lib/stats";
-import type { MatchPage, MatchSummary, Profile, RankedQueue, Result } from "@/lib/types";
+import { outcomeOf, summarize } from "@/lib/stats";
+import type {
+  ItemNames,
+  MatchPage,
+  MatchSummary,
+  Profile,
+  RankedQueue,
+  Result,
+} from "@/lib/types";
 import { useNow } from "@/lib/use-now";
 import { RememberProfile } from "../RecentSearches";
 import { MasteryList, RecentChampions } from "./ChampionLists";
@@ -24,6 +31,7 @@ export function ProfileView({ profile, pageSize }: { profile: Profile; pageSize:
   // Pages loaded with "Show more", kept apart from the server-rendered first
   // page so that pressing Update can replace that page without losing these.
   const [older, setOlder] = useState<MatchSummary[]>([]);
+  const [olderItemNames, setOlderItemNames] = useState<ItemNames>({});
   const [pagesLoaded, setPagesLoaded] = useState(1);
   const [hasMore, setHasMore] = useState(profile.hasMoreMatches);
   const [loading, setLoading] = useState(false);
@@ -40,6 +48,19 @@ export function ProfileView({ profile, pageSize }: { profile: Profile; pageSize:
     [matches, filter],
   );
   const summary = useMemo(() => summarize(visible), [visible]);
+  const form = useMemo(() => visible.slice(0, 20).map(outcomeOf), [visible]);
+  const itemNames = useMemo(
+    () => ({ ...olderItemNames, ...profile.itemNames }),
+    [olderItemNames, profile.itemNames],
+  );
+  const counts = useMemo(() => {
+    const byGroup: Partial<Record<Filter, number>> = { all: matches.length };
+    for (const m of matches) {
+      const group = queueGroup(m.queueId);
+      byGroup[group] = (byGroup[group] ?? 0) + 1;
+    }
+    return byGroup;
+  }, [matches]);
 
   async function loadMore() {
     setLoading(true);
@@ -54,6 +75,7 @@ export function ProfileView({ profile, pageSize }: { profile: Profile; pageSize:
         return;
       }
       setOlder((prev) => [...prev, ...body.data.matches]);
+      setOlderItemNames((prev) => ({ ...prev, ...body.data.itemNames }));
       setPagesLoaded((n) => n + 1);
       setHasMore(body.data.hasMore);
     } catch {
@@ -91,22 +113,36 @@ export function ProfileView({ profile, pageSize }: { profile: Profile; pageSize:
             aria-label="Filter matches by queue"
             className="flex gap-1 overflow-x-auto rounded-xl border border-edge bg-panel p-1"
           >
-            {QUEUE_FILTERS.map((f) => (
-              <button
-                key={f.id}
-                type="button"
-                onClick={() => setFilter(f.id)}
-                aria-pressed={filter === f.id}
-                className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                  filter === f.id ? "bg-brand text-white" : "text-soft hover:bg-raised hover:text-fg"
-                }`}
-              >
-                {f.label}
-              </button>
-            ))}
+            {QUEUE_FILTERS.map((f) => {
+              const count = counts[f.id] ?? 0;
+              const active = filter === f.id;
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  onClick={() => setFilter(f.id)}
+                  aria-pressed={active}
+                  // Nothing to show for an empty queue, but never trap the
+                  // visitor on a filter that has just become empty.
+                  disabled={count === 0 && !active}
+                  className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-40 ${
+                    active
+                      ? "bg-brand text-white"
+                      : "text-soft enabled:hover:bg-raised enabled:hover:text-fg"
+                  }`}
+                >
+                  {f.label}
+                  <span
+                    className={`font-mono text-xs tabular-nums ${active ? "text-white/75" : "text-faint"}`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
           </div>
 
-          <SummaryPanel summary={summary} />
+          <SummaryPanel summary={summary} form={form} />
 
           <section aria-labelledby={headingId}>
             <h2 id={headingId} className="sr-only">
@@ -122,6 +158,7 @@ export function ProfileView({ profile, pageSize }: { profile: Profile; pageSize:
                     match={match}
                     regionSlug={profile.regionSlug}
                     assetVersion={profile.assetVersion}
+                    itemNames={itemNames}
                     now={now}
                   />
                 ))}

@@ -2,15 +2,17 @@ import Link from "next/link";
 import { itemIcon, runeIcon, spellIcon } from "@/lib/assets";
 import { RUNES, SPELLS } from "@/lib/game-data";
 import { profilePath } from "@/lib/riot-id";
-import type { ParticipantSummary } from "@/lib/types";
+import type { ItemNames, ParticipantSummary } from "@/lib/types";
 import { GameIcon } from "../GameIcon";
 
 export function ItemRow({
   items,
+  itemNames,
   assetVersion,
   size = "size-7",
 }: {
   items: number[];
+  itemNames: ItemNames;
   assetVersion: string;
   size?: string;
 }) {
@@ -21,7 +23,7 @@ export function ItemRow({
           {item > 0 ? (
             <GameIcon
               src={itemIcon(assetVersion, item)}
-              alt=""
+              alt={itemNames[item] ?? ""}
               className={`${size} ${slot === 6 ? "rounded-full" : "rounded"}`}
             />
           ) : (

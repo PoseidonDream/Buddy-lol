@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -19,6 +19,19 @@ export const metadata: Metadata = {
   },
   description:
     "Look up any League of Legends player: rank, match history, champion stats and mastery.",
+  applicationName: "Buddy.lol",
+  openGraph: {
+    type: "website",
+    siteName: "Buddy.lol",
+    title: "Buddy.lol · League of Legends player lookup",
+    description:
+      "Look up any League of Legends player: rank, match history, champion stats and mastery.",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#0b0a10",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

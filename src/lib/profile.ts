@@ -2,6 +2,7 @@ import "server-only";
 
 import { demoMatches, demoProfile } from "./demo/generate";
 import { getStaticData } from "./ddragon";
+import { collectItemNames } from "./item-names";
 import { getRegion, type Region } from "./regions";
 import { riotIdFromSlug, riotIdToSlug, type RiotId } from "./riot-id";
 import {
@@ -135,6 +136,7 @@ export async function getProfile(
         mastery: mapMastery(masteries ?? [], staticData.champion),
         matches,
         hasMoreMatches: ids.length > MATCH_PAGE_SIZE,
+        itemNames: collectItemNames(matches, staticData.itemName),
         assetVersion: staticData.version,
         generatedAt: now,
       },
@@ -175,7 +177,14 @@ export async function getMatchPage(
       account.puuid,
       staticData.champion,
     );
-    return { ok: true, data: { matches, hasMore: ids.length > MATCH_PAGE_SIZE } };
+    return {
+      ok: true,
+      data: {
+        matches,
+        hasMore: ids.length > MATCH_PAGE_SIZE,
+        itemNames: collectItemNames(matches, staticData.itemName),
+      },
+    };
   } catch (err) {
     return describe(err);
   }

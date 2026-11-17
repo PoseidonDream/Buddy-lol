@@ -1,6 +1,6 @@
 import { formatKda, kdaRatio, percent } from "@/lib/format";
 import { POSITION_NAMES } from "@/lib/game-data";
-import type { Summary } from "@/lib/stats";
+import type { Outcome, Summary } from "@/lib/stats";
 
 export function kdaTone(ratio: number | null): string {
   if (ratio === null || ratio >= 5) return "text-gold";
@@ -43,7 +43,30 @@ function Stat({ label, value, tone = "" }: { label: string; value: string; tone?
   );
 }
 
-export function SummaryPanel({ summary }: { summary: Summary }) {
+const FORM_STYLE: Record<Outcome, { tile: string; label: string }> = {
+  win: { tile: "bg-win", label: "Win" },
+  loss: { tile: "bg-loss", label: "Loss" },
+  remake: { tile: "bg-faint/60", label: "Remake" },
+};
+
+/** One small tile per game, most recent first. */
+function FormStrip({ form }: { form: Outcome[] }) {
+  return (
+    <ol className="mt-2 flex max-w-44 flex-wrap gap-1" aria-label="Results, most recent first">
+      {form.map((outcome, i) => (
+        <li
+          key={i}
+          title={FORM_STYLE[outcome].label}
+          className={`size-2.5 rounded-[3px] ${FORM_STYLE[outcome].tile}`}
+        >
+          <span className="sr-only">{FORM_STYLE[outcome].label}</span>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+export function SummaryPanel({ summary, form }: { summary: Summary; form: Outcome[] }) {
   const { games, wins, losses } = summary;
   if (games === 0) {
     return (
@@ -69,6 +92,7 @@ export function SummaryPanel({ summary }: { summary: Summary }) {
               <span className="text-win">{wins}W</span>{" "}
               <span className="text-loss">{losses}L</span>
             </p>
+            <FormStrip form={form} />
           </div>
         </div>
 
