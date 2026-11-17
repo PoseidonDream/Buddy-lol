@@ -3,10 +3,11 @@
 import { useId, useState } from "react";
 import { championIcon } from "@/lib/assets";
 import {
-  MULTI_KILL_NAMES,
   formatDuration,
   formatKda,
+  initials,
   kdaRatio,
+  MULTI_KILL_NAMES,
   ordinal,
   percent,
   timeAgo,
@@ -14,7 +15,7 @@ import {
 import { queueName } from "@/lib/game-data";
 import { highlights, outcomeOf, type Outcome } from "@/lib/stats";
 import type { ItemNames, MatchSummary } from "@/lib/types";
-import { GameIcon, initials } from "../GameIcon";
+import { GameIcon } from "../GameIcon";
 import { MatchDetails } from "./MatchDetails";
 import { ItemRow, Loadout, PlayerLink, ScoreBadge } from "./MatchParts";
 import { kdaTone } from "./SummaryPanel";

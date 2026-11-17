@@ -1,8 +1,16 @@
 import { championIcon } from "@/lib/assets";
-import { formatCompact, formatKda, formatNumber, kdaRatio, percent, timeAgo } from "@/lib/format";
+import {
+  formatCompact,
+  formatKda,
+  formatNumber,
+  initials,
+  kdaRatio,
+  percent,
+  timeAgo,
+} from "@/lib/format";
 import type { ChampionStat } from "@/lib/stats";
 import type { MasteryEntry } from "@/lib/types";
-import { GameIcon, initials } from "../GameIcon";
+import { GameIcon } from "../GameIcon";
 import { kdaTone } from "./SummaryPanel";
 
 export function RecentChampions({

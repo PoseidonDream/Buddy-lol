@@ -4,7 +4,8 @@ import { championIcon } from "@/lib/assets";
 import { queueName } from "@/lib/game-data";
 import type { LiveGame, LiveTeam } from "@/lib/types";
 import { useNow } from "@/lib/use-now";
-import { GameIcon, initials } from "../GameIcon";
+import { GameIcon } from "../GameIcon";
+import { initials } from "@/lib/format";
 import { Loadout, PlayerLink } from "./MatchParts";
 
 function Team({

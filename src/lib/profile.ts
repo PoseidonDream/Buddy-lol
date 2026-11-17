@@ -19,6 +19,10 @@ import { mapMastery, mapMatch, mapRanked, type ChampionLookup } from "./riot/map
 import type { MatchPage, MatchSummary, Profile, ProfileError, Result } from "./types";
 
 export const MATCH_PAGE_SIZE = 10;
+
+function trimMastery(profile: Profile, count: number): Profile {
+  return { ...profile, mastery: profile.mastery.slice(0, count) };
+}
 const MASTERY_COUNT = 6;
 
 /** Without an API key the site serves generated sample data. */
@@ -75,9 +79,23 @@ async function fetchMatches(
   return results.filter((m): m is MatchSummary => m !== null);
 }
 
+export interface ProfileSize {
+  /** Matches to include. */
+  matches: number;
+  /** Champions to include in the mastery list. */
+  mastery: number;
+}
+
+const FULL_PROFILE: ProfileSize = { matches: MATCH_PAGE_SIZE, mastery: MASTERY_COUNT };
+
+/**
+ * A player's profile. `size` trims it for places that show several players
+ * at once, where every match fetched costs a request against the rate limit.
+ */
 export async function getProfile(
   regionSlug: string,
   riotIdSlug: string,
+  size: ProfileSize = FULL_PROFILE,
 ): Promise<Result<Profile>> {
   const target = resolve(regionSlug, riotIdSlug);
   if (!target) return fail("invalid", INVALID);
@@ -89,7 +107,10 @@ export async function getProfile(
   if (isDemoMode()) {
     return {
       ok: true,
-      data: demoProfile(region, id.gameName, id.tagLine, MATCH_PAGE_SIZE, staticData.version, now),
+      data: trimMastery(
+        demoProfile(region, id.gameName, id.tagLine, size.matches, staticData.version, now),
+        size.mastery,
+      ),
     };
   }
 
@@ -103,9 +124,10 @@ export async function getProfile(
     const [summoner, leagues, masteries, matchIds] = await Promise.all([
       getSummoner(region, puuid),
       getLeagueEntries(region, puuid),
-      getTopMasteries(region, puuid, MASTERY_COUNT),
+      // Skip the request entirely when nothing would be shown.
+      size.mastery > 0 ? getTopMasteries(region, puuid, size.mastery) : Promise.resolve([]),
       // One extra id tells us whether there is another page.
-      getMatchIds(region, puuid, 0, MATCH_PAGE_SIZE + 1),
+      getMatchIds(region, puuid, 0, size.matches + 1),
     ]);
     if (!summoner) {
       return fail(
@@ -117,7 +139,7 @@ export async function getProfile(
     const ids = matchIds ?? [];
     const matches = await fetchMatches(
       region,
-      ids.slice(0, MATCH_PAGE_SIZE),
+      ids.slice(0, size.matches),
       puuid,
       staticData.champion,
     );
@@ -136,7 +158,7 @@ export async function getProfile(
         ranked: mapRanked(leagues ?? []),
         mastery: mapMastery(masteries ?? [], staticData.champion),
         matches,
-        hasMoreMatches: ids.length > MATCH_PAGE_SIZE,
+        hasMoreMatches: ids.length > size.matches,
         itemNames: collectItemNames(matches, staticData.itemName),
         assetVersion: staticData.version,
         generatedAt: now,

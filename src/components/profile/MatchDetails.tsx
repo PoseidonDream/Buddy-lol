@@ -1,7 +1,7 @@
 import { championIcon } from "@/lib/assets";
-import { formatCompact, formatKda, formatNumber, kdaRatio } from "@/lib/format";
+import { formatCompact, formatKda, formatNumber, initials, kdaRatio } from "@/lib/format";
 import type { ItemNames, MatchSummary, TeamSummary } from "@/lib/types";
-import { GameIcon, initials } from "../GameIcon";
+import { GameIcon } from "../GameIcon";
 import { ItemRow, Loadout, PlayerLink, ScoreBadge } from "./MatchParts";
 import { kdaTone } from "./SummaryPanel";
 
