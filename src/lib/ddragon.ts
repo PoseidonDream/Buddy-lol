@@ -17,6 +17,8 @@ export interface StaticData {
   champion(id: number, apiName?: string): { key: string; name: string };
   /** `undefined` for an item we have no name for. */
   itemName(id: number): string | undefined;
+  /** Whether an item is part of a build (finished items and boots), not a component or consumable. */
+  isBuildItem(id: number): boolean;
 }
 
 async function getJson<T>(url: string): Promise<T | null> {
@@ -36,7 +38,27 @@ interface ChampionFile {
 }
 
 interface ItemFile {
-  data: Record<string, { name?: string }>;
+  data: Record<
+    string,
+    { name?: string; gold?: { total?: number }; tags?: string[]; into?: string[] }
+  >;
+}
+
+/** Trinkets and the like, which every build has and which say nothing about it. */
+const NOT_BUILD = new Set([2052, 3340, 3363, 3364]);
+
+/** Finished items and boots, from Data Dragon's item list. */
+function buildItemsFrom(file: ItemFile | null): Set<number> | null {
+  if (!file) return null;
+  const items = new Set<number>();
+  for (const [id, item] of Object.entries(file.data)) {
+    const tags = item.tags ?? [];
+    if (tags.includes("Consumable") || tags.includes("Trinket")) continue;
+    const boots = tags.includes("Boots") && (item.gold?.total ?? 0) >= 900;
+    const finished = !item.into?.length && (item.gold?.total ?? 0) >= 2000;
+    if (boots || finished) items.add(Number(id));
+  }
+  return items;
 }
 
 const FALLBACK_CHAMPIONS = new Map<number, ChampionInfo>(
@@ -67,9 +89,13 @@ export async function getStaticData(): Promise<StaticData> {
     champions.set(id, { id, key: c.id, name: c.name });
   }
 
+  const buildItems = buildItemsFrom(itemFile);
+
   return {
     version,
     itemName: (id) => items.get(id),
+    isBuildItem: (id) =>
+      buildItems ? buildItems.has(id) : id in ITEM_NAMES && !NOT_BUILD.has(id),
     champion(id, apiName) {
       const known = champions.get(id);
       if (known) return { key: known.key, name: known.name };

@@ -151,6 +151,8 @@ export function mapMatch(
         dragons: side?.objectives?.dragon?.kills ?? 0,
         barons: side?.objectives?.baron?.kills ?? 0,
         placement: p.placement,
+        // -1 marks a skipped ban.
+        bans: (side?.bans ?? []).filter((b) => b.championId > 0).map((b) => champion(b.championId).key),
         participants: [],
       };
       teams.set(p.teamId, team);

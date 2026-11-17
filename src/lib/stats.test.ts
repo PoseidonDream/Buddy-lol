@@ -19,8 +19,8 @@ function game(id: string, player: Partial<ParticipantSummary>, teamKills: number
   return {
     id, queueId: 420, gameMode: "CLASSIC", endedAt: 0, durationSec: 1800, remake: false, patch: "16.22", me: p,
     teams: [
-      { id: 100, win: p.win, kills: teamKills, gold: 0, towers: 0, dragons: 0, barons: 0, placement: null, participants: [p] },
-      { id: 200, win: !p.win, kills: 0, gold: 0, towers: 0, dragons: 0, barons: 0, placement: null, participants: [] },
+      { id: 100, win: p.win, kills: teamKills, gold: 0, towers: 0, dragons: 0, barons: 0, placement: null, bans: [], participants: [p] },
+      { id: 200, win: !p.win, kills: 0, gold: 0, towers: 0, dragons: 0, barons: 0, placement: null, bans: [], participants: [] },
     ],
     ...extra,
   };

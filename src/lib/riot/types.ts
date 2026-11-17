@@ -114,6 +114,7 @@ export interface ObjectiveDto {
 export interface TeamDto {
   teamId: number;
   win: boolean;
+  bans?: { championId: number; pickTurn?: number }[];
   objectives?: {
     baron?: ObjectiveDto;
     dragon?: ObjectiveDto;

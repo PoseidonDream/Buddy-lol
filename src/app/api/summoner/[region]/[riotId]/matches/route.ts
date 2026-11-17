@@ -1,6 +1,7 @@
-import type { NextRequest } from "next/server";
+import { after, type NextRequest } from "next/server";
 import { isServerFilter } from "@/lib/game-data";
 import { getMatchPage } from "@/lib/profile";
+import { recordMatches } from "@/lib/record";
 import type { ProfileErrorKind } from "@/lib/types";
 
 const STATUS: Record<ProfileErrorKind, number> = {
@@ -37,5 +38,9 @@ export async function GET(
   }
 
   const result = await getMatchPage(region, riotId, start, queue ?? undefined);
+  if (result.ok) {
+    const { matches } = result.data;
+    after(() => recordMatches(matches));
+  }
   return Response.json(result, { status: result.ok ? 200 : STATUS[result.error.kind] });
 }

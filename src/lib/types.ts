@@ -92,6 +92,8 @@ export interface TeamSummary {
   barons: number;
   /** Final placement, only in modes that rank teams (Arena). */
   placement: number | null;
+  /** Champion keys this side banned. */
+  bans: string[];
   participants: ParticipantSummary[];
 }
 
@@ -110,6 +112,22 @@ export interface MatchSummary {
   /** The player this history belongs to. */
   me: ParticipantSummary;
   teams: TeamSummary[];
+}
+
+export interface RankHistoryPoint {
+  /** Epoch milliseconds. */
+  at: number;
+  /** Position on the rank scale (see rank-scale.ts). */
+  value: number;
+  /** "Gold II · 54 LP" */
+  label: string;
+}
+
+export interface RankHistory {
+  queue: RankedQueue;
+  points: RankHistoryPoint[];
+  /** "demo" history is generated; "live" history is what this site has recorded. */
+  source: "live" | "demo";
 }
 
 export type ApexTier = "challenger" | "grandmaster" | "master";

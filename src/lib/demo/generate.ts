@@ -237,6 +237,7 @@ function buildTeam(
     dragons: aram ? 0 : Math.round((win ? rng.range(1.5, 3.6) : rng.range(0.3, 2.2)) * objectivePace),
     barons: aram ? 0 : minutes < 22 ? 0 : win ? rng.int(0, 2) : rng.int(0, 1),
     placement: null,
+    bans: [],
     participants,
   };
 }
@@ -308,6 +309,14 @@ function buildMatch(me: Persona, index: number, anchor: number): MatchSummary {
   });
 
   if (!remake) ratePlayers(teams);
+
+  // Ten bans from champions nobody picked, as in draft.
+  if (!aram) {
+    const picked = new Set(teams.flatMap((t) => t.participants.map((p) => p.championKey)));
+    const bans = rng.shuffle(CHAMPION_POOL.filter((c) => !picked.has(c.key))).slice(0, 10);
+    teams[0].bans = bans.slice(0, 5).map((c) => c.key);
+    teams[1].bans = bans.slice(5).map((c) => c.key);
+  }
 
   return {
     id: `DEMO_${hashString(me.seed).toString(36)}_${index}`,

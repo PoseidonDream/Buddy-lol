@@ -19,7 +19,7 @@ function team(id: number, win: boolean, players: Partial<ParticipantSummary>[]):
   const participants = players.map((p) => player({ teamId: id, win, ...p }));
   return {
     id, win, kills: participants.reduce((n, p) => n + p.kills, 0), gold: 0, towers: 0, dragons: 0, barons: 0,
-    placement: null, participants,
+    placement: null, bans: [], participants,
   };
 }
 
