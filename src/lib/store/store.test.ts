@@ -79,6 +79,38 @@ function suite(name: string, make: () => Store) {
       expect(await store.rankHistory(a, "RANKED_FLEX_SR", 0)).toHaveLength(1);
     });
 
+    it("keeps notes per player, newest first, and deletes them", async () => {
+      const p = `noted-${run}`;
+      const base = { puuid: p, regionSlug: "euw", riotId: "Someone#EUW", author: "Anil" };
+      const first = await store.addNote({ ...base, body: "Plays safe early.", at: 1_000 });
+      const second = await store.addNote({ ...base, author: "Mate", body: "Tilts after\nfirst death.", at: 2_000 });
+      expect(first).not.toBe(second);
+
+      const notes = await store.listNotes(p);
+      expect(notes.map((n) => n.body)).toEqual(["Tilts after\nfirst death.", "Plays safe early."]);
+      expect(notes[0]).toMatchObject({ author: "Mate", riotId: "Someone#EUW", regionSlug: "euw", at: 2_000 });
+
+      expect(await store.noteCounts([p, "nobody"])).toEqual({ [p]: 2 });
+      expect(await store.noteCounts([])).toEqual({});
+      expect(await store.deleteNote(first)).toBe(true);
+      expect(await store.deleteNote(first)).toBe(false);
+      expect(await store.deleteNote("not-a-number")).toBe(false);
+      expect((await store.listNotes(p)).map((n) => n.id)).toEqual([second]);
+    });
+
+    it("keeps feedback, newest first, and deletes it", async () => {
+      const a = await store.addFeedback({ body: `Love it ${run}`, contact: "", page: "/", at: Date.now() - 1000 });
+      const b = await store.addFeedback({ body: `Bug ${run}`, contact: "me@example.com", page: "/champions", at: Date.now() });
+      const mine = (await store.listFeedback(500)).filter((f) => f.body.endsWith(run));
+      expect(mine.map((f) => f.body)).toEqual([`Bug ${run}`, `Love it ${run}`]);
+      expect(mine[0]).toMatchObject({ contact: "me@example.com", page: "/champions" });
+      expect(await store.listFeedback(1)).toHaveLength(1);
+      expect(await store.deleteFeedback(a)).toBe(true);
+      expect(await store.deleteFeedback(a)).toBe(false);
+      expect(await store.deleteFeedback("x")).toBe(false);
+      expect((await store.listFeedback(500)).some((f) => f.id === b)).toBe(true);
+    });
+
     it("counts hits per window", async () => {
       const bucket = `rl-${run}`;
       expect(await store.countHits(bucket, 60_000, 1)).toBe(1);

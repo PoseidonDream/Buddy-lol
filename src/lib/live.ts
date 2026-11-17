@@ -2,11 +2,11 @@ import "server-only";
 
 import { demoLiveGame } from "./demo/generate";
 import { getStaticData } from "./ddragon";
-import { getRegion } from "./regions";
-import { getActiveGame } from "./riot/api";
+import { getRegion, type Region } from "./regions";
+import { getActiveGame, getChampionMastery, getLeagueEntries } from "./riot/api";
 import { RiotApiError } from "./riot/client";
-import { mapLiveGame } from "./riot/mapper";
-import type { LiveGame, Profile } from "./types";
+import { mapLiveGame, mapRanked } from "./riot/mapper";
+import type { LiveGame, LivePlayer, Profile } from "./types";
 
 /**
  * The game this player is in right now, or `null`. It is an extra on the
@@ -28,9 +28,52 @@ export async function getLiveGame(
       getActiveGame(region, profile.puuid),
       getStaticData(),
     ]);
-    return game ? mapLiveGame(game, staticData.champion) : null;
+    if (!game) return null;
+    const live = mapLiveGame(game, staticData.champion);
+    await addRanksAndMastery(region, live.teams.flatMap((t) => t.players));
+    return live;
   } catch (err) {
     if (err instanceof RiotApiError) return null;
     throw err;
   }
+}
+
+/**
+ * Each player's rank and their mastery on the champion they picked: two
+ * requests per player, a few players at a time. A player whose lookups fail
+ * just shows without them. After a rate limit the rest are skipped, so the
+ * game still shows.
+ */
+async function addRanksAndMastery(region: Region, players: LivePlayer[]): Promise<void> {
+  const queue = players.filter((p) => p.puuid);
+  let limited = false;
+
+  const worker = async () => {
+    while (queue.length && !limited) {
+      const player = queue.shift()!;
+      const puuid = player.puuid!;
+      const [entries, mastery] = await Promise.allSettled([
+        getLeagueEntries(region, puuid),
+        getChampionMastery(region, puuid, player.championId),
+      ]);
+
+      for (const result of [entries, mastery]) {
+        if (result.status === "rejected") {
+          if (!(result.reason instanceof RiotApiError)) throw result.reason;
+          if (result.reason.status === 429) limited = true;
+        }
+      }
+      if (entries.status === "fulfilled") {
+        const ranked = mapRanked(entries.value ?? []);
+        player.rank = ranked.find((r) => r.queue === "RANKED_SOLO_5x5") ?? ranked[0] ?? null;
+      }
+      if (mastery.status === "fulfilled" && mastery.value) {
+        player.mastery = {
+          level: mastery.value.championLevel,
+          points: mastery.value.championPoints,
+        };
+      }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(4, queue.length) }, worker));
 }

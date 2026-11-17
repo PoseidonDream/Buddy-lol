@@ -8,7 +8,9 @@ import {
   type ChampionRow,
   type MatchDelta,
   type PatchTotal,
+  type Feedback,
   type PickKind,
+  type PlayerNote,
   type RankSnapshot,
   type Store,
 } from "./types";
@@ -34,10 +36,26 @@ interface Data {
   bans: Record<string, Record<string, number>>;
   /** patch -> "champion|kind|choice" -> counts */
   picks: Record<string, Record<string, Counter>>;
+  notes: PlayerNote[];
+  nextNoteId: number;
+  feedback: Feedback[];
+  nextFeedbackId: number;
 }
 
 function empty(): Data {
-  return { version: 1, ranks: {}, seen: [], patches: {}, champions: {}, bans: {}, picks: {} };
+  return {
+    version: 1,
+    ranks: {},
+    seen: [],
+    patches: {},
+    champions: {},
+    bans: {},
+    picks: {},
+    notes: [],
+    nextNoteId: 1,
+    feedback: [],
+    nextFeedbackId: 1,
+  };
 }
 
 function bump(map: Record<string, Counter>, key: string, win: boolean) {
@@ -104,6 +122,58 @@ export class MemoryStore implements Store {
     list.push(snapshot);
     if (list.length > MAX_SNAPSHOTS) list.splice(0, list.length - MAX_SNAPSHOTS);
     this.scheduleSave();
+  }
+
+  async addNote(note: Omit<PlayerNote, "id">) {
+    await this.loaded;
+    const id = String(this.data.nextNoteId++);
+    this.data.notes.push({ ...note, id });
+    this.scheduleSave();
+    return id;
+  }
+
+  async listNotes(puuid: string) {
+    await this.loaded;
+    return this.data.notes.filter((n) => n.puuid === puuid).sort((a, b) => b.at - a.at);
+  }
+
+  async deleteNote(id: string) {
+    await this.loaded;
+    const before = this.data.notes.length;
+    this.data.notes = this.data.notes.filter((n) => n.id !== id);
+    if (this.data.notes.length === before) return false;
+    this.scheduleSave();
+    return true;
+  }
+
+  async noteCounts(puuids: string[]) {
+    await this.loaded;
+    const wanted = new Set(puuids);
+    const counts: Record<string, number> = {};
+    for (const n of this.data.notes) if (wanted.has(n.puuid)) counts[n.puuid] = (counts[n.puuid] ?? 0) + 1;
+    return counts;
+  }
+
+  async addFeedback(item: Omit<Feedback, "id">) {
+    await this.loaded;
+    const id = String(this.data.nextFeedbackId++);
+    this.data.feedback.push({ ...item, id });
+    this.scheduleSave();
+    return id;
+  }
+
+  async listFeedback(limit: number) {
+    await this.loaded;
+    return [...this.data.feedback].sort((a, b) => b.at - a.at).slice(0, limit);
+  }
+
+  async deleteFeedback(id: string) {
+    await this.loaded;
+    const before = this.data.feedback.length;
+    this.data.feedback = this.data.feedback.filter((f) => f.id !== id);
+    if (this.data.feedback.length === before) return false;
+    this.scheduleSave();
+    return true;
   }
 
   async pruneRanks(before: number) {

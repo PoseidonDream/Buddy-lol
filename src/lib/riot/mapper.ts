@@ -202,11 +202,15 @@ export function mapLiveGame(dto: CurrentGameDto, champion: ChampionLookup): Live
       puuid: p.puuid || null,
       gameName: hash > 0 ? p.riotId!.slice(0, hash) : p.riotId || (p.bot ? "Bot" : "Hidden player"),
       tagLine: hash > 0 ? p.riotId!.slice(hash + 1) : "",
+      championId: p.championId,
       championKey: c.key,
       championName: c.name,
       spells: [p.spell1Id ?? 0, p.spell2Id ?? 0],
       keystone: p.perks?.perkIds?.[0] ?? null,
       secondaryStyle: p.perks?.perkSubStyle ?? null,
+      // Filled in separately, one request per player (see live.ts).
+      rank: null,
+      mastery: null,
     });
   }
 

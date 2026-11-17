@@ -63,6 +63,7 @@ export function ProfileView({
   pageSize,
   liveGame,
   rankHistory,
+  notes,
 }: {
   profile: Profile;
   pageSize: number;
@@ -70,6 +71,8 @@ export function ProfileView({
   liveGame?: React.ReactNode;
   /** Rendered under the rank cards. */
   rankHistory?: React.ReactNode;
+  /** Private notes, rendered right under the rank cards. */
+  notes?: React.ReactNode;
 }) {
   const now = useNow(profile.generatedAt);
   const headingId = useId();
@@ -175,6 +178,7 @@ export function ProfileView({
               entry={profile.ranked.find((r) => r.queue === queue)}
             />
           ))}
+          {notes}
           {rankHistory}
         </div>
 

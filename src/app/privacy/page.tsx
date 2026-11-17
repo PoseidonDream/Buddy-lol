@@ -33,13 +33,17 @@ export default function PrivacyPage() {
         <Section title="About players">
           <p>
             When someone looks a player up, their rank, games and champion stats are fetched from
-            Riot and shown. Two things are kept afterwards:
+            Riot and shown. These are kept afterwards:
           </p>
           <ul className="list-disc space-y-2 pl-5">
             <li>
               <strong className="text-fg">Rank snapshots</strong>: tier, LP, wins and losses, with
               the time, stored under Riot&apos;s player ID. They draw the LP history graph, and are
               deleted after 180 days.
+            </li>
+            <li>
+              <strong className="text-fg">Private notes</strong> that the people running this site
+              write about players for themselves. Nobody else can see them.
             </li>
             <li>
               <strong className="text-fg">Ranked game totals</strong>: which champions, items,
@@ -59,6 +63,13 @@ export default function PrivacyPage() {
             Your browser remembers your region and the players you recently viewed, in its own
             local storage. That never leaves your device, and clearing your browser data removes it.
             The site sets no cookies.
+          </p>
+        </Section>
+
+        <Section title="Feedback">
+          <p>
+            Messages sent with the feedback button are kept until the people running the site
+            delete them, along with the page you were on and any contact details you chose to add.
           </p>
         </Section>
 

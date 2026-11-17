@@ -73,6 +73,15 @@ export function getTopMasteries(region: Region, puuid: string, count: number) {
   );
 }
 
+/** Mastery on one champion. Resolves to `null` if they have never played it. */
+export function getChampionMastery(region: Region, puuid: string, championId: number) {
+  return riotGet<MasteryDto>(
+    region.platform,
+    `/lol/champion-mastery/v4/champion-masteries/by-puuid/${enc(puuid)}/by-champion/${championId}`,
+    10 * MINUTE,
+  );
+}
+
 export function getMatchIds(
   region: Region,
   puuid: string,

@@ -420,6 +420,22 @@ function mastery(rng: Rng, me: Persona, now: number): MasteryEntry[] {
   });
 }
 
+/**
+ * A sample player's ranks, the same as on their profile: the profile draws
+ * its icon and level from the same seeded sequence first.
+ */
+export function demoRanked(
+  region: { slug: string; defaultTag: string },
+  gameName: string,
+  tagLine: string,
+): RankedEntry[] {
+  const me = persona(region.slug, gameName, tagLine, region.defaultTag);
+  const rng = new Rng(`${me.seed}:profile`);
+  rng.int(0, 28); // icon
+  rng.int(42, 780); // level
+  return rankedEntries(rng, me);
+}
+
 export function demoProfile(
   region: { slug: string; defaultTag: string },
   gameName: string,
@@ -491,15 +507,20 @@ export function demoLiveGame(
       id: t === 0 ? 100 : 200,
       players: team.map((seat) => {
         const build = BUILDS[archetypeOf(seat.champ)];
+        const ranked = demoRanked(region, seat.gameName, seat.tagLine);
+        const points = rng.chance(0.15) ? rng.int(800, 9_000) : rng.int(12_000, 650_000);
         return {
           puuid: seat.puuid,
           gameName: seat.gameName,
           tagLine: seat.tagLine,
+          championId: seat.champ.id,
           championKey: seat.champ.key,
           championName: seat.champ.name,
           spells: rng.pick(SPELLS_BY_ROLE[seat.role ?? "MIDDLE"]),
           keystone: rng.pick(build.keystones),
           secondaryStyle: rng.pick(build.secondary),
+          rank: ranked.find((r) => r.queue === "RANKED_SOLO_5x5") ?? ranked[0] ?? null,
+          mastery: { level: Math.max(1, Math.round(points / 22_000)), points },
         };
       }),
       bans: bannable.slice(t * 5, t * 5 + 5).map((c) => ({ championKey: c.key, championName: c.name })),

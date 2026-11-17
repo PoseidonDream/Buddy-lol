@@ -11,7 +11,7 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/summoner/", "/multisearch", "/api/", "/leaderboards/*?"],
+      disallow: ["/summoner/", "/multisearch", "/api/", "/leaderboards/*?", "/feedback"],
     },
   };
 }

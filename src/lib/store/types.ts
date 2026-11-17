@@ -45,6 +45,31 @@ export interface ChampionDetail {
   picks: { kind: PickKind; choice: string; games: number; wins: number }[];
 }
 
+/** A private note on a player, written by one of the site's owners. */
+export interface PlayerNote {
+  id: string;
+  puuid: string;
+  regionSlug: string;
+  /** "Name#TAG" at the time of writing, in case the player renames. */
+  riotId: string;
+  author: string;
+  body: string;
+  /** Epoch milliseconds. */
+  at: number;
+}
+
+/** A message sent with the feedback button. */
+export interface Feedback {
+  id: string;
+  body: string;
+  /** How to reach the sender, if they gave one. */
+  contact: string;
+  /** The page they were on, e.g. "/champions". */
+  page: string;
+  /** Epoch milliseconds. */
+  at: number;
+}
+
 export interface Store {
   /** Where the data lives, for status messages. */
   readonly kind: "postgres" | "file" | "memory";
@@ -55,6 +80,20 @@ export interface Store {
   recordRanks(snapshots: RankSnapshot[]): Promise<void>;
   /** Snapshots taken at or after `since`, oldest first. */
   rankHistory(puuid: string, queue: RankedQueue, since: number): Promise<RankSnapshot[]>;
+
+  /** Saves a note and returns its id. */
+  addNote(note: Omit<PlayerNote, "id">): Promise<string>;
+  /** Notes on one player, newest first. */
+  listNotes(puuid: string): Promise<PlayerNote[]>;
+  /** False if no such note. */
+  deleteNote(id: string): Promise<boolean>;
+  /** How many notes each of these players has; players without notes are left out. */
+  noteCounts(puuids: string[]): Promise<Record<string, number>>;
+
+  addFeedback(item: Omit<Feedback, "id">): Promise<string>;
+  /** Newest first. */
+  listFeedback(limit: number): Promise<Feedback[]>;
+  deleteFeedback(id: string): Promise<boolean>;
 
   /** Rank snapshots older than this are deleted. Returns how many. */
   pruneRanks(before: number): Promise<number>;
