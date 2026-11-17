@@ -2,6 +2,7 @@ import "server-only";
 
 import { demoMatches, demoProfile } from "./demo/generate";
 import { getStaticData } from "./ddragon";
+import { queueGroup, type ServerFilter } from "./game-data";
 import { collectItemNames } from "./item-names";
 import { getRegion, type Region } from "./regions";
 import { riotIdFromSlug, riotIdToSlug, type RiotId } from "./riot-id";
@@ -146,10 +147,15 @@ export async function getProfile(
   }
 }
 
+/**
+ * One page of match history. With a `filter`, `start` counts within that
+ * queue's games rather than within all of them.
+ */
 export async function getMatchPage(
   regionSlug: string,
   riotIdSlug: string,
   start: number,
+  filter?: ServerFilter,
 ): Promise<Result<MatchPage>> {
   const target = resolve(regionSlug, riotIdSlug);
   if (!target) return fail("invalid", INVALID);
@@ -158,7 +164,7 @@ export async function getMatchPage(
   if (isDemoMode()) {
     return {
       ok: true,
-      data: demoMatches(region, id.gameName, id.tagLine, start, MATCH_PAGE_SIZE, Date.now()),
+      data: demoMatches(region, id.gameName, id.tagLine, start, MATCH_PAGE_SIZE, Date.now(), filter),
     };
   }
 
@@ -168,15 +174,19 @@ export async function getMatchPage(
 
     const [staticData, matchIds] = await Promise.all([
       getStaticData(),
-      getMatchIds(region, account.puuid, start, MATCH_PAGE_SIZE + 1),
+      getMatchIds(region, account.puuid, start, MATCH_PAGE_SIZE + 1, filter),
     ]);
     const ids = matchIds ?? [];
-    const matches = await fetchMatches(
+    const fetched = await fetchMatches(
       region,
       ids.slice(0, MATCH_PAGE_SIZE),
       account.puuid,
       staticData.champion,
     );
+    // Riot's own filter can be broader than ours (see matchListQuery).
+    const matches = filter
+      ? fetched.filter((m) => queueGroup(m.queueId) === filter)
+      : fetched;
     return {
       ok: true,
       data: {

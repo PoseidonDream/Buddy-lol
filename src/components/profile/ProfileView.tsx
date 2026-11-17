@@ -1,7 +1,12 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
-import { QUEUE_FILTERS, queueGroup, type QueueGroup } from "@/lib/game-data";
+import {
+  QUEUE_FILTERS,
+  isServerFilter,
+  queueGroup,
+  type QueueGroup,
+} from "@/lib/game-data";
 import { outcomeOf, summarize } from "@/lib/stats";
 import type {
   ItemNames,
@@ -23,66 +28,130 @@ const RANKED: RankedQueue[] = ["RANKED_SOLO_5x5", "RANKED_FLEX_SR"];
 
 type Filter = "all" | QueueGroup;
 
-export function ProfileView({ profile, pageSize }: { profile: Profile; pageSize: number }) {
+/**
+ * Match history is paged separately for each queue filter. "all" continues
+ * from the page the server rendered; a queue filter asks Riot for that queue
+ * only, starting from its most recent game. ("other" has no server-side
+ * equivalent, so it pages through "all" and filters here.)
+ */
+type Feed = "all" | Exclude<QueueGroup, "other">;
+
+interface FeedState {
+  matches: MatchSummary[];
+  /** Pages fetched from the browser so far. */
+  pages: number;
+  /** `null` until the first page says whether there is another. */
+  hasMore: boolean | null;
+  loading: boolean;
+  error: string | null;
+}
+
+const EMPTY: FeedState = { matches: [], pages: 0, hasMore: null, loading: false, error: null };
+
+function feedFor(filter: Filter): Feed {
+  return filter === "other" ? "all" : filter;
+}
+
+function newestFirst(matches: MatchSummary[]): MatchSummary[] {
+  const byId = new Map<string, MatchSummary>();
+  for (const m of matches) byId.set(m.id, m);
+  return [...byId.values()].sort((a, b) => b.endedAt - a.endedAt);
+}
+
+export function ProfileView({
+  profile,
+  pageSize,
+  liveGame,
+  rankHistory,
+}: {
+  profile: Profile;
+  pageSize: number;
+  /** Rendered under the header; streams in from the server when ready. */
+  liveGame?: React.ReactNode;
+  /** Rendered under the rank cards. */
+  rankHistory?: React.ReactNode;
+}) {
   const now = useNow(profile.generatedAt);
   const headingId = useId();
   const [filter, setFilter] = useState<Filter>("all");
+  const [feeds, setFeeds] = useState<Partial<Record<Feed, FeedState>>>({});
+  const [moreItemNames, setMoreItemNames] = useState<ItemNames>({});
 
-  // Pages loaded with "Show more", kept apart from the server-rendered first
-  // page so that pressing Update can replace that page without losing these.
-  const [older, setOlder] = useState<MatchSummary[]>([]);
-  const [olderItemNames, setOlderItemNames] = useState<ItemNames>({});
-  const [pagesLoaded, setPagesLoaded] = useState(1);
-  const [hasMore, setHasMore] = useState(profile.hasMoreMatches);
-  const [loading, setLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const feed = feedFor(filter);
+  const state = feeds[feed] ?? EMPTY;
 
-  const matches = useMemo(() => {
-    const byId = new Map<string, MatchSummary>();
-    for (const m of [...profile.matches, ...older]) byId.set(m.id, m);
-    return [...byId.values()].sort((a, b) => b.endedAt - a.endedAt);
-  }, [profile.matches, older]);
-
-  const visible = useMemo(
-    () => (filter === "all" ? matches : matches.filter((m) => queueGroup(m.queueId) === filter)),
-    [matches, filter],
+  // The server-rendered first page is kept apart from pages loaded here, so
+  // that pressing Update can replace it without losing the rest.
+  const everything = useMemo(
+    () => newestFirst([...profile.matches, ...(feeds.all?.matches ?? [])]),
+    [profile.matches, feeds.all],
   );
+
+  const visible = useMemo(() => {
+    if (filter === "all") return everything;
+    const inQueue = everything.filter((m) => queueGroup(m.queueId) === filter);
+    if (filter === "other") return inQueue;
+    // Show what is already on hand at once; the queue's own pages fill in behind it.
+    return newestFirst([...inQueue, ...(feeds[filter]?.matches ?? [])]);
+  }, [everything, feeds, filter]);
+
   const summary = useMemo(() => summarize(visible), [visible]);
   const form = useMemo(() => visible.slice(0, 20).map(outcomeOf), [visible]);
   const itemNames = useMemo(
-    () => ({ ...olderItemNames, ...profile.itemNames }),
-    [olderItemNames, profile.itemNames],
+    () => ({ ...moreItemNames, ...profile.itemNames }),
+    [moreItemNames, profile.itemNames],
   );
-  const counts = useMemo(() => {
-    const byGroup: Partial<Record<Filter, number>> = { all: matches.length };
-    for (const m of matches) {
-      const group = queueGroup(m.queueId);
-      byGroup[group] = (byGroup[group] ?? 0) + 1;
-    }
-    return byGroup;
-  }, [matches]);
 
-  async function loadMore() {
-    setLoading(true);
-    setLoadError(null);
+  const hasMore = state.hasMore ?? (feed === "all" ? profile.hasMoreMatches : true);
+
+  async function loadNext(target: Feed) {
+    const current = feeds[target] ?? EMPTY;
+    if (current.loading) return;
+
+    const patch = (change: Partial<FeedState>) =>
+      setFeeds((prev) => ({ ...prev, [target]: { ...(prev[target] ?? EMPTY), ...change } }));
+    patch({ loading: true, error: null });
+
+    // Page one of "all" came with the profile itself.
+    const start = (current.pages + (target === "all" ? 1 : 0)) * pageSize;
+    const queue = isServerFilter(target) ? `&queue=${target}` : "";
+
     try {
       const res = await fetch(
-        `/api/summoner/${profile.regionSlug}/${profile.requestSlug}/matches?start=${pagesLoaded * pageSize}`,
+        `/api/summoner/${profile.regionSlug}/${profile.requestSlug}/matches?start=${start}${queue}`,
       );
       const body = (await res.json()) as Result<MatchPage>;
       if (!body.ok) {
-        setLoadError(body.error.message);
+        patch({ loading: false, error: body.error.message });
         return;
       }
-      setOlder((prev) => [...prev, ...body.data.matches]);
-      setOlderItemNames((prev) => ({ ...prev, ...body.data.itemNames }));
-      setPagesLoaded((n) => n + 1);
-      setHasMore(body.data.hasMore);
+      setFeeds((prev) => {
+        const before = prev[target] ?? EMPTY;
+        return {
+          ...prev,
+          [target]: {
+            matches: [...before.matches, ...body.data.matches],
+            pages: before.pages + 1,
+            hasMore: body.data.hasMore,
+            loading: false,
+            error: null,
+          },
+        };
+      });
+      setMoreItemNames((prev) => ({ ...prev, ...body.data.itemNames }));
     } catch {
-      setLoadError("Couldn't load more matches. Check your connection and try again.");
-    } finally {
-      setLoading(false);
+      patch({
+        loading: false,
+        error: "Couldn't load more matches. Check your connection and try again.",
+      });
     }
+  }
+
+  function choose(next: Filter) {
+    setFilter(next);
+    // First visit to a queue: fetch its most recent games straight away.
+    const target = feedFor(next);
+    if (target !== "all" && !feeds[target]) void loadNext(target);
   }
 
   return (
@@ -93,6 +162,7 @@ export function ProfileView({ profile, pageSize }: { profile: Profile; pageSize:
         tagLine={profile.tagLine}
       />
       <ProfileHeader profile={profile} />
+      {liveGame}
 
       {/* One column on small screens, in source order: rank, matches, champion
           lists. From lg up the first and last blocks stack in a left rail. */}
@@ -105,6 +175,7 @@ export function ProfileView({ profile, pageSize }: { profile: Profile; pageSize:
               entry={profile.ranked.find((r) => r.queue === queue)}
             />
           ))}
+          {rankHistory}
         </div>
 
         <div className="min-w-0 space-y-4 lg:col-start-2 lg:row-span-2 lg:row-start-1">
@@ -113,44 +184,30 @@ export function ProfileView({ profile, pageSize }: { profile: Profile; pageSize:
             aria-label="Filter matches by queue"
             className="flex gap-1 overflow-x-auto rounded-xl border border-edge bg-panel p-1"
           >
-            {QUEUE_FILTERS.map((f) => {
-              const count = counts[f.id] ?? 0;
-              const active = filter === f.id;
-              return (
-                <button
-                  key={f.id}
-                  type="button"
-                  onClick={() => setFilter(f.id)}
-                  aria-pressed={active}
-                  // Nothing to show for an empty queue, but never trap the
-                  // visitor on a filter that has just become empty.
-                  disabled={count === 0 && !active}
-                  className={`flex items-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-40 ${
-                    active
-                      ? "bg-brand text-white"
-                      : "text-soft enabled:hover:bg-raised enabled:hover:text-fg"
-                  }`}
-                >
-                  {f.label}
-                  <span
-                    className={`font-mono text-xs tabular-nums ${active ? "text-white/75" : "text-faint"}`}
-                  >
-                    {count}
-                  </span>
-                </button>
-              );
-            })}
+            {QUEUE_FILTERS.map((f) => (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => choose(f.id)}
+                aria-pressed={filter === f.id}
+                className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  filter === f.id
+                    ? "bg-brand text-white"
+                    : "text-soft hover:bg-raised hover:text-fg"
+                }`}
+              >
+                {f.label}
+              </button>
+            ))}
           </div>
 
-          <SummaryPanel summary={summary} form={form} />
+          <SummaryPanel summary={summary} form={form} loading={state.loading} />
 
-          <section aria-labelledby={headingId}>
+          <section aria-labelledby={headingId} aria-busy={state.loading}>
             <h2 id={headingId} className="sr-only">
               Match history
             </h2>
-            {matches.length === 0 ? (
-              <p className="card p-6 text-center text-soft">No recent matches on record.</p>
-            ) : (
+            {visible.length > 0 ? (
               <ul className="space-y-2">
                 {visible.map((match) => (
                   <MatchCard
@@ -163,21 +220,26 @@ export function ProfileView({ profile, pageSize }: { profile: Profile; pageSize:
                   />
                 ))}
               </ul>
+            ) : (
+              !state.loading &&
+              filter === "all" && (
+                <p className="card p-6 text-center text-soft">No recent matches on record.</p>
+              )
             )}
 
-            {loadError && (
+            {state.error && (
               <p role="alert" className="mt-3 text-sm text-loss">
-                {loadError}
+                {state.error}
               </p>
             )}
-            {hasMore && (
+            {(hasMore || state.loading) && (
               <button
                 type="button"
-                onClick={loadMore}
-                disabled={loading}
+                onClick={() => loadNext(feed)}
+                disabled={state.loading}
                 className="mt-3 w-full rounded-xl border border-edge bg-panel py-3 text-sm font-medium transition-colors hover:border-faint disabled:opacity-60"
               >
-                {loading ? "Loading…" : "Show more matches"}
+                {state.loading ? "Loading…" : "Show more matches"}
               </button>
             )}
           </section>

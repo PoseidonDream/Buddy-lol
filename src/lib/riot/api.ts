@@ -1,5 +1,6 @@
 import "server-only";
 
+import { matchListQuery, type ServerFilter } from "../game-data";
 import type { Region } from "../regions";
 import { riotGet } from "./client";
 import type {
@@ -48,10 +49,17 @@ export function getTopMasteries(region: Region, puuid: string, count: number) {
   );
 }
 
-export function getMatchIds(region: Region, puuid: string, start: number, count: number) {
+export function getMatchIds(
+  region: Region,
+  puuid: string,
+  start: number,
+  count: number,
+  filter?: ServerFilter,
+) {
+  const narrowed = filter ? `&${matchListQuery(filter)}` : "";
   return riotGet<string[]>(
     region.matchRoute,
-    `/lol/match/v5/matches/by-puuid/${enc(puuid)}/ids?start=${start}&count=${count}`,
+    `/lol/match/v5/matches/by-puuid/${enc(puuid)}/ids?start=${start}&count=${count}${narrowed}`,
     MINUTE,
   );
 }

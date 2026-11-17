@@ -74,6 +74,29 @@ export const QUEUE_FILTERS: { id: "all" | QueueGroup; label: string }[] = [
   { id: "other", label: "Other" },
 ];
 
+/**
+ * Filters Riot can apply for us when listing a player's matches, as the query
+ * string it expects. "other" has no equivalent, so it is filtered locally.
+ */
+export type ServerFilter = Exclude<QueueGroup, "other">;
+
+const MATCH_LIST_QUERY: Record<ServerFilter, string> = {
+  solo: "queue=420",
+  flex: "queue=440",
+  // There are several normal queues and Riot takes one queue id at a time,
+  // so ask by type and drop anything that is not a normal game afterwards.
+  normal: "type=normal",
+  aram: "queue=450",
+};
+
+export function isServerFilter(value: unknown): value is ServerFilter {
+  return typeof value === "string" && value in MATCH_LIST_QUERY;
+}
+
+export function matchListQuery(filter: ServerFilter): string {
+  return MATCH_LIST_QUERY[filter];
+}
+
 export const RANKED_QUEUE_NAMES: Record<RankedQueue, string> = {
   RANKED_SOLO_5x5: "Ranked Solo/Duo",
   RANKED_FLEX_SR: "Ranked Flex",

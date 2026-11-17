@@ -5,7 +5,14 @@
  * player, and paging through match history is stable.
  */
 
-import { CHAMPION_POOL, ITEM_NAMES, POSITIONS, TIERS } from "../game-data";
+import {
+  CHAMPION_POOL,
+  ITEM_NAMES,
+  POSITIONS,
+  TIERS,
+  queueGroup,
+  type ServerFilter,
+} from "../game-data";
 import { collectItemNames } from "../item-names";
 import type {
   MasteryEntry,
@@ -301,16 +308,26 @@ function buildMatch(me: Persona, index: number, anchor: number): MatchSummary {
   };
 }
 
-function matchPage(me: Persona, start: number, count: number, now: number): MatchPage {
+function matchPage(
+  me: Persona,
+  start: number,
+  count: number,
+  now: number,
+  filter?: ServerFilter,
+): MatchPage {
   // Anchor to the start of the current UTC day so pages requested a few
   // minutes apart still line up.
   const anchor = Math.floor(now / DAY_MS) * DAY_MS - 20 * 60_000;
-  const end = Math.min(TOTAL_MATCHES, start + count);
-  const matches: MatchSummary[] = [];
-  for (let i = Math.max(0, start); i < end; i++) matches.push(buildMatch(me, i, anchor));
+
+  let history: MatchSummary[] = [];
+  for (let i = 0; i < TOTAL_MATCHES; i++) history.push(buildMatch(me, i, anchor));
+  if (filter) history = history.filter((m) => queueGroup(m.queueId) === filter);
+
+  const from = Math.max(0, start);
+  const matches = history.slice(from, from + count);
   return {
     matches,
-    hasMore: end < TOTAL_MATCHES,
+    hasMore: from + count < history.length,
     itemNames: collectItemNames(matches, (id) => ITEM_NAMES[id]),
   };
 }
@@ -401,6 +418,8 @@ export function demoMatches(
   start: number,
   count: number,
   now: number,
+  filter?: ServerFilter,
 ): MatchPage {
-  return matchPage(persona(region.slug, gameName, tagLine, region.defaultTag), start, count, now);
+  const me = persona(region.slug, gameName, tagLine, region.defaultTag);
+  return matchPage(me, start, count, now, filter);
 }

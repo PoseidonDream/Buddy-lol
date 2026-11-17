@@ -66,12 +66,21 @@ function FormStrip({ form }: { form: Outcome[] }) {
   );
 }
 
-export function SummaryPanel({ summary, form }: { summary: Summary; form: Outcome[] }) {
+export function SummaryPanel({
+  summary,
+  form,
+  loading = false,
+}: {
+  summary: Summary;
+  form: Outcome[];
+  /** More games for this view are on their way. */
+  loading?: boolean;
+}) {
   const { games, wins, losses } = summary;
   if (games === 0) {
     return (
       <section className="card p-6 text-center text-soft">
-        No games in this queue among the matches loaded so far.
+        {loading ? "Loading games…" : "No games found in this queue."}
       </section>
     );
   }

@@ -80,3 +80,24 @@ describe("sample data consistency", () => {
     expect(Object.values(seen).every((n) => n > 0), JSON.stringify(seen)).toBe(true);
   });
 });
+
+describe("sample data by queue", () => {
+  const all = demoMatches(region, "Buddy", "LOL", 0, 60, NOW).matches;
+
+  it("pages through one queue's games only", () => {
+    const solo = all.filter((m) => m.queueId === 420);
+    const first = demoMatches(region, "Buddy", "LOL", 0, 10, NOW, "solo");
+    const second = demoMatches(region, "Buddy", "LOL", 10, 10, NOW, "solo");
+
+    expect(first.matches.map((m) => m.id)).toEqual(solo.slice(0, 10).map((m) => m.id));
+    expect(second.matches.map((m) => m.id)).toEqual(solo.slice(10, 20).map((m) => m.id));
+    expect(first.hasMore).toBe(solo.length > 10);
+  });
+
+  it("reports the end of a short queue", () => {
+    const aram = all.filter((m) => m.queueId === 450);
+    const page = demoMatches(region, "Buddy", "LOL", 0, 60, NOW, "aram");
+    expect(page.matches).toHaveLength(aram.length);
+    expect(page.hasMore).toBe(false);
+  });
+});
