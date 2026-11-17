@@ -6,6 +6,7 @@ import type {
   ChampionDetail,
   MatchDelta,
   PatchTotal,
+  Feedback,
   PickKind,
   PlayerNote,
   RankSnapshot,
@@ -58,6 +59,13 @@ create table if not exists player_notes (
   created_at timestamptz not null default now()
 );
 create index if not exists player_notes_puuid on player_notes (puuid);
+create table if not exists feedback (
+  id bigserial primary key,
+  body text not null,
+  contact text not null,
+  page text not null,
+  created_at timestamptz not null default now()
+);
 create table if not exists rate_hits (
   bucket text not null,
   window_start bigint not null,
@@ -211,6 +219,41 @@ export class PostgresStore implements Store {
       [puuids],
     );
     return Object.fromEntries(rows.map((r) => [r.puuid as string, r.n as number]));
+  }
+
+  async addFeedback(f: Omit<Feedback, "id">) {
+    await this.schema();
+    const { rows } = await this.pool.query(
+      `insert into feedback (body, contact, page, created_at)
+       values ($1, $2, $3, to_timestamp($4 / 1000.0)) returning id`,
+      [f.body, f.contact, f.page, f.at],
+    );
+    return String(rows[0].id);
+  }
+
+  async listFeedback(limit: number) {
+    await this.schema();
+    const { rows } = await this.pool.query(
+      `select id, body, contact, page, extract(epoch from created_at) * 1000 as at
+       from feedback order by created_at desc, id desc limit $1`,
+      [limit],
+    );
+    return rows.map(
+      (r): Feedback => ({
+        id: String(r.id),
+        body: r.body,
+        contact: r.contact,
+        page: r.page,
+        at: Math.round(Number(r.at)),
+      }),
+    );
+  }
+
+  async deleteFeedback(id: string) {
+    if (!/^\d{1,18}$/.test(id)) return false;
+    await this.schema();
+    const result = await this.pool.query("delete from feedback where id = $1", [id]);
+    return (result.rowCount ?? 0) > 0;
   }
 
   async pruneRanks(before: number) {

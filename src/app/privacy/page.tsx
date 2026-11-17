@@ -66,6 +66,13 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section title="Feedback">
+          <p>
+            Messages sent with the feedback button are kept until the people running the site
+            delete them, along with the page you were on and any contact details you chose to add.
+          </p>
+        </Section>
+
         <Section title="Services used">
           <p>
             The site is hosted by Vercel, which keeps standard request logs. Its database is run

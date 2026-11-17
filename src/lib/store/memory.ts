@@ -8,6 +8,7 @@ import {
   type ChampionRow,
   type MatchDelta,
   type PatchTotal,
+  type Feedback,
   type PickKind,
   type PlayerNote,
   type RankSnapshot,
@@ -37,6 +38,8 @@ interface Data {
   picks: Record<string, Record<string, Counter>>;
   notes: PlayerNote[];
   nextNoteId: number;
+  feedback: Feedback[];
+  nextFeedbackId: number;
 }
 
 function empty(): Data {
@@ -50,6 +53,8 @@ function empty(): Data {
     picks: {},
     notes: [],
     nextNoteId: 1,
+    feedback: [],
+    nextFeedbackId: 1,
   };
 }
 
@@ -147,6 +152,28 @@ export class MemoryStore implements Store {
     const counts: Record<string, number> = {};
     for (const n of this.data.notes) if (wanted.has(n.puuid)) counts[n.puuid] = (counts[n.puuid] ?? 0) + 1;
     return counts;
+  }
+
+  async addFeedback(item: Omit<Feedback, "id">) {
+    await this.loaded;
+    const id = String(this.data.nextFeedbackId++);
+    this.data.feedback.push({ ...item, id });
+    this.scheduleSave();
+    return id;
+  }
+
+  async listFeedback(limit: number) {
+    await this.loaded;
+    return [...this.data.feedback].sort((a, b) => b.at - a.at).slice(0, limit);
+  }
+
+  async deleteFeedback(id: string) {
+    await this.loaded;
+    const before = this.data.feedback.length;
+    this.data.feedback = this.data.feedback.filter((f) => f.id !== id);
+    if (this.data.feedback.length === before) return false;
+    this.scheduleSave();
+    return true;
   }
 
   async pruneRanks(before: number) {

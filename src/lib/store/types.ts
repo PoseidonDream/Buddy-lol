@@ -58,6 +58,18 @@ export interface PlayerNote {
   at: number;
 }
 
+/** A message sent with the feedback button. */
+export interface Feedback {
+  id: string;
+  body: string;
+  /** How to reach the sender, if they gave one. */
+  contact: string;
+  /** The page they were on, e.g. "/champions". */
+  page: string;
+  /** Epoch milliseconds. */
+  at: number;
+}
+
 export interface Store {
   /** Where the data lives, for status messages. */
   readonly kind: "postgres" | "file" | "memory";
@@ -77,6 +89,11 @@ export interface Store {
   deleteNote(id: string): Promise<boolean>;
   /** How many notes each of these players has; players without notes are left out. */
   noteCounts(puuids: string[]): Promise<Record<string, number>>;
+
+  addFeedback(item: Omit<Feedback, "id">): Promise<string>;
+  /** Newest first. */
+  listFeedback(limit: number): Promise<Feedback[]>;
+  deleteFeedback(id: string): Promise<boolean>;
 
   /** Rank snapshots older than this are deleted. Returns how many. */
   pruneRanks(before: number): Promise<number>;

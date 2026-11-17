@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import Link from "next/link";
+import { FeedbackButton } from "@/components/feedback/FeedbackButton";
+import { connection } from "next/server";
+import { Suspense } from "react";
+import { notesEnabled } from "@/lib/notes-auth";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -35,6 +39,16 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
+/**
+ * Feedback goes to the password-protected inbox, so the button only shows
+ * when that password is set. Checked per request rather than when the page
+ * shell is built, so the shell never disagrees with the settings it runs with.
+ */
+async function Feedback() {
+  await connection();
+  return notesEnabled() ? <FeedbackButton /> : null;
+}
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
@@ -44,10 +58,13 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       <body className="flex min-h-full flex-col">
         <div className="flex-1">{children}</div>
         <footer className="border-t border-edge px-4 py-8">
-          <nav aria-label="Footer" className="mx-auto mb-3 max-w-6xl text-xs">
+          <nav aria-label="Footer" className="mx-auto mb-3 flex max-w-6xl items-center gap-4 text-xs">
             <Link href="/privacy" className="rounded text-soft hover:text-fg hover:underline">
               Privacy
             </Link>
+            <Suspense fallback={null}>
+              <Feedback />
+            </Suspense>
           </nav>
           <p className="mx-auto max-w-6xl text-xs leading-relaxed text-faint">
             Buddy.lol isn&apos;t endorsed by Riot Games and doesn&apos;t reflect

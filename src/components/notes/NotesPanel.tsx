@@ -41,7 +41,10 @@ export async function NotesPanel({ profile }: { profile: Profile }) {
           Notes {notes.length > 0 && <span className="text-gold">· {notes.length}</span>}
         </h2>
         <form action={lockNotes} className="text-xs text-faint">
-          {writer} ·{" "}
+          <a href="/feedback" className="rounded hover:text-fg hover:underline">
+            Inbox
+          </a>{" "}
+          · {writer} ·{" "}
           <button type="submit" className="rounded hover:text-fg hover:underline">
             Lock
           </button>

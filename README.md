@@ -53,7 +53,7 @@ All optional except the key. See `.env.example`.
 | `COLLECT_REGIONS`   | Regions the collector visits, comma separated. Default `euw`.               |
 | `BUDDY_DATA_FILE`   | Where to keep the JSON file when there is no database.                      |
 | `CONTACT_URL`       | Where the privacy page sends questions, e.g. `mailto:you@example.com`.     |
-| `NOTES_PASSWORD`    | Turns on private player notes; anyone with this password can read and write them. |
+| `NOTES_PASSWORD`    | Turns on private player notes and the feedback inbox; anyone with this password can use them. |
 | `RIOT_VERIFICATION_CODE` | The code Riot asks you to host at `/riot.txt` when applying for a production key. |
 | `RATE_LIMIT_PER_MINUTE` | Lookups one visitor may make per minute. Default 10.                    |
 | `RATE_LIMIT_PER_HOUR`   | Lookups one visitor may make per hour. Default 100.                     |
@@ -92,6 +92,11 @@ plus each team's average rank. That costs two extra Riot requests per player.
 notes on any profile, and the live game marks players who have notes. Without
 the password nobody sees the notes or even the panel. Notes are stored in the
 same database as everything else.
+
+**Feedback.** With `NOTES_PASSWORD` set, every page has a "Send feedback"
+button in the footer. Messages (plus the page they came from and an optional
+contact) land in the inbox at `/feedback`, which opens with the same password.
+Each address can send 5 an hour, and a hidden field catches simple bots.
 
 **The tier list** grades champions on win rate pulled toward 50% by a hundred
 games, so a champion needs both a good record and enough games to rank highly.
