@@ -1,0 +1,75 @@
+@import "tailwindcss";
+
+@theme {
+  /* Surfaces, darkest to lightest: black with a little violet in it */
+  --color-ink: #0b0a10;
+  --color-panel: #13111b;
+  --color-raised: #1b1826;
+  --color-edge: #2a2639;
+
+  /* Text */
+  --color-fg: #ebe9f3;
+  --color-soft: #a9a4ba;
+  --color-faint: #827c96;
+
+  /* Brand. `brand` is a fill that carries white text (buttons, the active
+     tab); `accent` is the lighter tint for purple text and lines on black. */
+  --color-brand: #7c3aed;
+  --color-accent: #a78bfa;
+
+  /* Results follow the game's own convention: blue for a win, red for a loss.
+     The blue leans toward azure to stay distinct from the brand purple. */
+  --color-win: #4c9dff;
+  --color-win-wash: #101a2d;
+  --color-loss: #ff6170;
+  --color-loss-wash: #27131b;
+  --color-gold: #f0c05a;
+
+  /* Chart line: the brand hue, stepped into the lightness band that reads on
+     the dark panel (checked with the dataviz palette validator). */
+  --color-chart: #9575f5;
+
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  /* A soft violet glow behind the top of every page. */
+  background:
+    radial-gradient(
+        900px 420px at 50% -180px,
+        color-mix(in srgb, var(--color-brand) 28%, transparent),
+        transparent 72%
+      )
+      no-repeat,
+    var(--color-ink);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--color-brand) 55%, transparent);
+}
+
+@utility label-caps {
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-faint);
+}
+
+@utility card {
+  background: var(--color-panel);
+  border: 1px solid var(--color-edge);
+  border-radius: 0.75rem;
+}
