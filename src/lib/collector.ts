@@ -17,7 +17,14 @@ export interface CollectReport {
   ranksRecorded: number;
   playersVisited: number;
   matchesAdded: number;
+  /** Players or games skipped because Riot couldn't serve them. */
+  skipped: number;
   stoppedBecause: "budget" | "time" | "rate_limited" | "done";
+}
+
+/** A rate limit or a rejected key affects every call; anything else only that one. */
+function isFatal(err: unknown): boolean {
+  return err instanceof RiotApiError && [401, 403, 429].includes(err.status);
 }
 
 /** Games looked at per player visited. */
@@ -46,6 +53,7 @@ export async function collect(
     ranksRecorded: 0,
     playersVisited: 0,
     matchesAdded: 0,
+    skipped: 0,
     stoppedBecause: "done",
   };
 
@@ -90,16 +98,28 @@ export async function collect(
     for (const puuid of order) {
       if (!spend()) return report;
       report.playersVisited++;
-      const ids = (await getMatchIds(region, puuid, 0, GAMES_PER_PLAYER, "solo")) ?? [];
+      let ids: string[];
+      try {
+        ids = (await getMatchIds(region, puuid, 0, GAMES_PER_PLAYER, "solo")) ?? [];
+      } catch (err) {
+        if (isFatal(err)) throw err;
+        report.skipped++;
+        continue;
+      }
       const seen = await store.seenMatches(ids);
 
       for (const id of ids) {
         if (seen.has(id)) continue;
         if (!spend()) return report;
-        const dto = await getMatch(region, id);
-        const match = dto ? mapMatch(dto, puuid, champion) : null;
-        const delta = match ? matchDelta(match, isBuildItem) : null;
-        if (delta && (await store.recordMatch(delta))) report.matchesAdded++;
+        try {
+          const dto = await getMatch(region, id);
+          const match = dto ? mapMatch(dto, puuid, champion) : null;
+          const delta = match ? matchDelta(match, isBuildItem) : null;
+          if (delta && (await store.recordMatch(delta))) report.matchesAdded++;
+        } catch (err) {
+          if (isFatal(err)) throw err;
+          report.skipped++;
+        }
       }
     }
     return report;

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { connection } from "next/server";
 import { Suspense } from "react";
 import { DemoBanner } from "@/components/DemoBanner";
@@ -15,22 +16,46 @@ const SAMPLE_PLAYERS = [
 
 const FEATURES = [
   {
-    title: "Rank",
-    body: "Solo and flex tier, LP and season win rate.",
-    // Shield
-    icon: "M12 3 5 6v5c0 4.5 2.9 8.2 7 10 4.1-1.8 7-5.5 7-10V6l-7-3Z",
+    title: "Profiles",
+    body: "Rank, LP history, every recent game with a score, builds and the full scoreboard.",
+    href: null,
+    // Person
+    icon: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm-7 8a7 7 0 0 1 14 0",
   },
   {
-    title: "Match history",
-    body: "Every recent game with builds, runes and the full scoreboard.",
-    // List
-    icon: "M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01",
+    title: "Live games",
+    body: "See who a player is up against while their game is still running.",
+    href: null,
+    // Broadcast
+    icon: "M4.9 19.1a10 10 0 0 1 0-14.2m14.2 0a10 10 0 0 1 0 14.2M7.8 16.2a6 6 0 0 1 0-8.4m8.4 0a6 6 0 0 1 0 8.4M12 12h.01",
+  },
+  {
+    title: "Multi-search",
+    body: "Paste your lobby and size up all five players at once.",
+    href: "/multisearch",
+    // Group
+    icon: "M9 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5 8a5 5 0 0 1 10 0m2-8a3 3 0 1 0 0-6m1 14h3a5 5 0 0 0-4-4.9",
   },
   {
     title: "Champions",
-    body: "Win rate and KDA per champion, plus mastery.",
+    body: "A tier list by role and patch, with the items, runes and spells that win.",
+    href: "/champions",
     // Bar chart
     icon: "M5 20V10m7 10V4m7 16v-7",
+  },
+  {
+    title: "Leaderboards",
+    body: "Challenger, Grandmaster and Master for every region.",
+    href: "/leaderboards/euw",
+    // Trophy
+    icon: "M8 4h8v5a4 4 0 0 1-8 0V4Zm4 9v4m-4 3h8M8 6H5a3 3 0 0 0 3 4m8-4h3a3 3 0 0 1-3 4",
+  },
+  {
+    title: "Rank",
+    body: "Solo and flex tier, LP and win rate, with a hot-streak flag.",
+    href: null,
+    // Shield
+    icon: "M12 3 5 6v5c0 4.5 2.9 8.2 7 10 4.1-1.8 7-5.5 7-10V6l-7-3Z",
   },
 ];
 
@@ -90,9 +115,9 @@ export default function Home() {
           </Suspense>
         </div>
 
-        <ul className="mt-20 grid gap-4 sm:grid-cols-3">
+        <ul className="mt-20 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((feature) => (
-            <li key={feature.title} className="card p-5">
+            <li key={feature.title} className="card relative p-5 transition-colors has-[a:hover]:border-faint">
               <svg
                 viewBox="0 0 24 24"
                 className="size-6 text-accent"
@@ -105,7 +130,16 @@ export default function Home() {
               >
                 <path d={feature.icon} />
               </svg>
-              <h2 className="mt-4 font-medium">{feature.title}</h2>
+              <h2 className="mt-4 font-medium">
+                {feature.href ? (
+                  // The link covers the whole card.
+                  <Link href={feature.href} className="rounded after:absolute after:inset-0">
+                    {feature.title}
+                  </Link>
+                ) : (
+                  feature.title
+                )}
+              </h2>
               <p className="mt-1 text-sm leading-relaxed text-soft">{feature.body}</p>
             </li>
           ))}

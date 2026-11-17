@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { collect } from "@/lib/collector";
 import { getRegion } from "@/lib/regions";
-import { riotApiKey } from "@/lib/riot/client";
+import { RiotApiError, riotApiKey } from "@/lib/riot/client";
 import { getStore } from "@/lib/store";
 
 export const maxDuration = 60;
@@ -41,6 +41,21 @@ export async function GET(request: NextRequest) {
   const budget = Math.floor(Math.min(500, Math.max(1, Number.isFinite(raw) ? raw : 80)) / regions.length);
 
   const reports = [];
-  for (const region of regions) reports.push(await collect(region, { budget }));
+  try {
+    for (const region of regions) reports.push(await collect(region, { budget }));
+  } catch (err) {
+    const keyRejected = err instanceof RiotApiError && (err.status === 401 || err.status === 403);
+    console.error("Collector failed.", err);
+    return Response.json(
+      {
+        ok: false,
+        error: keyRejected
+          ? "Riot rejected the API key. Development keys expire after 24 hours."
+          : "The collector stopped on an unexpected error; see the server log.",
+        reports,
+      },
+      { status: keyRejected ? 502 : 500 },
+    );
+  }
   return Response.json({ ok: true, store: getStore().kind, reports });
 }

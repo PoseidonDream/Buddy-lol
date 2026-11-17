@@ -1,9 +1,11 @@
 # Buddy.lol
 
-A League of Legends player lookup: search a Riot ID and see rank, recent form,
-match history with full scoreboards, per-champion stats and mastery.
+A League of Legends stats site: player profiles with rank, LP history, match
+history and live games; Challenger to Master leaderboards; a lobby
+multi-search; and a champion tier list with builds.
 
-Built with Next.js 16 (App Router), React 19, TypeScript and Tailwind CSS 4.
+Built with Next.js 16 (App Router), React 19, TypeScript and Tailwind CSS 4,
+with optional Postgres.
 
 ## Running it
 
@@ -14,11 +16,11 @@ npm run dev
 
 Open http://localhost:3000.
 
-With no configuration the site runs on **sample data**: every profile is
-generated from the Riot ID you search for, and a banner says so. That is enough
-to work on the UI.
+With no configuration the site runs on **sample data**: every profile,
+leaderboard and tier list is generated, and a banner says so. That is enough to
+work on the UI.
 
-To look up real players, get a key from the
+To use real data, get a key from the
 [Riot Developer Portal](https://developer.riotgames.com) and put it in
 `.env.local`:
 
@@ -27,9 +29,8 @@ cp .env.example .env.local
 # then set RIOT_API_KEY=RGAPI-...
 ```
 
-Development keys expire every 24 hours and allow 100 requests per 2 minutes.
-Loading one profile for the first time costs 15 requests. A public site needs a
-production key, which Riot grants after reviewing the app.
+Development keys expire every 24 hours and allow 100 requests per 2 minutes. A
+public site needs a production key, which Riot grants after reviewing the app.
 
 | Command             | What it does                         |
 | ------------------- | ------------------------------------ |
@@ -40,84 +41,138 @@ production key, which Riot grants after reviewing the app.
 | `npm run lint`      | ESLint                               |
 | `npm run typecheck` | Generate route types and run `tsc`   |
 
+### Settings
+
+All optional except the key. See `.env.example`.
+
+| Variable            | What it does                                                                |
+| ------------------- | --------------------------------------------------------------------------- |
+| `RIOT_API_KEY`      | Riot API key. Without it, everything is sample data.                        |
+| `DATABASE_URL`      | Postgres connection string. Without it, data goes to `.data/buddy.json`.    |
+| `CRON_SECRET`       | Protects the collector endpoint. Vercel Cron sends it automatically.        |
+| `COLLECT_REGIONS`   | Regions the collector visits, comma separated. Default `euw`.               |
+| `BUDDY_DATA_FILE`   | Where to keep the JSON file when there is no database.                      |
+| `RIOT_API_BASE_URL` | Send Riot calls elsewhere (a caching proxy, a local stub).                  |
+
 ## What is here
 
-| Route                                         | Purpose                                 |
-| --------------------------------------------- | --------------------------------------- |
-| `/`                                           | Search, recently viewed players         |
-| `/summoner/{region}/{Name}-{TAG}`             | Player profile                          |
-| `/api/summoner/{region}/{Name}-{TAG}/matches` | JSON, one more page of match history (`?start=10`) |
+| Route                                         | Purpose                                                    |
+| --------------------------------------------- | ---------------------------------------------------------- |
+| `/`                                           | Search, recently viewed players                            |
+| `/summoner/{region}/{Name}-{TAG}`             | Player profile                                             |
+| `/leaderboards/{region}`                      | Challenger, Grandmaster and Master, solo or flex           |
+| `/multisearch`                                | Paste a lobby, see up to five players side by side         |
+| `/champions`                                  | Tier list by role and patch                                |
+| `/champions/{key}`                            | One champion: win, pick and ban rate; items, runes, spells |
+| `/api/summoner/{region}/{Name}-{TAG}/matches` | JSON, a page of match history (`?start=10&queue=solo`)     |
+| `/api/cron/collect`                           | Runs the collector (see below)                             |
 
-A profile shows:
+**A profile** shows the game the player is in right now (if any), solo and flex
+rank, an LP history graph, a summary of recent games (win rate, form, KDA, kill
+participation, CS, roles), and match history. Queue filters ask Riot for that
+queue's games, so "Ranked Solo" reaches back past the games already loaded. Each
+game shows a 0 to 10 score with MVP and ACE badges, and expands into a full
+scoreboard.
 
-- Solo/Duo and Flex rank, LP and season win rate
-- A summary of the loaded games: win rate, recent form, KDA, kill participation,
-  CS per minute, roles played
-- Match history, 10 games at a time, filterable by queue (each filter shows how
-  many games it holds). Each game expands into a scoreboard with damage, gold,
-  CS, vision and items for all ten players
-- Tags on a game for multi-kills, the most damage dealt and a deathless game
-- Win rate and KDA per champion over those games, and top champion mastery
-- Item, spell, rune and champion names as tooltips
+**The score** measures each stat against the best in the game, weighted by role
+(supports are judged on vision and involvement rather than farm). It is our own
+heuristic, not something Riot publishes. See `src/lib/score.ts`.
+
+**The tier list** grades champions on win rate pulled toward 50% by a hundred
+games, so a champion needs both a good record and enough games to rank highly.
+
+## Data that builds up over time
+
+Riot's API only describes the present: a player's rank now, their recent games.
+LP history and champion statistics have to be collected, so the site keeps:
+
+- **Rank snapshots.** Saved whenever a profile is opened and the rank has
+  changed since the last snapshot, and for every Challenger and Grandmaster
+  player each time the collector runs. The LP graph draws from these, so a
+  player's graph starts the first time anyone looks them up.
+- **Champion statistics.** Every ranked solo game the site sees, from profiles
+  or from the collector, adds to per-patch counts of picks, wins, bans, items,
+  keystones, rune trees and summoner spells. Each game is counted once.
+
+Where it is kept:
+
+- **Postgres**, when `DATABASE_URL` is set. Tables are created on first use. Any
+  Postgres works; Neon and Supabase have free tiers.
+- **Otherwise a JSON file**, `.data/buddy.json`. Fine on one computer, but hosts
+  without a lasting disk (Vercel included) lose it, so use Postgres there.
+
+### The collector
+
+`/api/cron/collect` gathers ranked solo games from the top of the ladder. Each
+run reads the Challenger and Grandmaster lists, saves those players' ranks, then
+fetches recent games from a different handful of them each time, skipping games
+already counted. It stops at a request budget (80 by default, `?budget=` to
+change) so it never uses up the key's rate limit.
+
+Run it by hand:
+
+```bash
+curl -H "Authorization: Bearer $CRON_SECRET" "http://localhost:3000/api/cron/collect?region=euw"
+```
+
+In development it runs without the secret. `vercel.json` schedules it once a
+day, which is all Vercel's free plan allows; for a tier list that keeps up,
+call it more often from any scheduler (every 5 to 10 minutes stays within a
+development key's limits).
 
 ## How it is put together
 
 ```
 src/
-  app/                    Routes. Pages are thin: they load data and hand it to components.
-  components/             UI. profile/ holds everything on the profile page.
+  app/                    Routes. Pages load data and hand it to components.
+  components/             UI, grouped by page: profile/, ladder/, multi/, champions/.
   lib/
     regions.ts            Servers, and which Riot API host each endpoint lives on.
-    riot-id.ts            Parsing "Name#TAG" and the URL form "Name-TAG".
+    riot-id.ts, lobby.ts  Reading "Name#TAG", the URL form "Name-TAG", and pasted lobbies.
     riot/                 API client, endpoint wrappers, response types, and the
                           mapper from Riot's responses to our own types.
     profile.ts            Builds a profile: live from Riot, or sample data without a key.
-    demo/                 The seeded sample-data generator.
-    ddragon.ts, assets.ts Data Dragon: current patch, champion names, image URLs.
-    game-data.ts          Static tables: queues, tiers, summoner spells, keystones.
-    stats.ts              Aggregates over a list of matches.
-    types.ts              The shapes the UI renders. Both data sources produce these.
+    live.ts, ladder.ts    The current game, and leaderboards.
+    score.ts              The per-game score.
+    store/                Storage: the interface, Postgres and JSON-file versions,
+                          and turning a game into statistics.
+    record.ts             Saves ranks and games after a page is served.
+    rank-history.ts       LP history; rank-scale.ts turns ranks into one number.
+    champions.ts          Tier list and champion pages.
+    collector.ts          The collector job.
+    demo/                 Seeded sample data: profiles, games, ladders.
+    ddragon.ts, assets.ts Data Dragon: patch, champion, item, rune and spell names; image URLs.
+    types.ts              The shapes the UI renders. Live and sample data both produce these.
 ```
 
 Things worth knowing before changing it:
 
-- **The API key never reaches the browser.** All Riot calls happen on the server
-  (`src/lib/riot/client.ts` is marked `server-only`).
-- **Caching is per Riot request**, through Next's `fetch` cache: finished matches
-  for 30 days, rank and summoner data for 2 minutes, match lists for 1 minute.
-  Pressing *Update* re-renders the profile and refetches whatever has expired.
-- **Rate limits.** A call that hits the per-second limit waits and retries once.
-  Hitting the two-minute limit shows a "Too many lookups" page instead.
-- **Riot's routing is two-level.** Summoner, league and mastery endpoints live on
-  a platform host (`euw1`); account and match endpoints on a regional one
-  (`europe`). `regions.ts` holds the mapping.
-- **This is Next.js 16 with Cache Components.** Pages are prerendered shells with
-  the data streamed in behind `<Suspense>`. The framework docs that match the
-  installed version are in `node_modules/next/dist/docs/`.
-- **Images come from Riot's Data Dragon CDN** and fall back to a text tile if one
-  fails to load. Champion and item names come from Data Dragon too, with small
-  built-in tables in `game-data.ts` as a fallback.
+- **The API key never reaches the browser.** All Riot calls happen on the server.
+- **Riot responses are cached one by one**, through Next's `fetch` cache:
+  finished matches for 30 days, names for a day, rank and summoner data for 2
+  minutes, match lists for 1 minute, live games for 30 seconds. Leaderboards
+  are kept in memory for 10 minutes because a Master list is too large for the
+  fetch cache. A call that hits the per-second rate limit waits and retries once.
+- **Riot's routing is two-level.** Summoner, league, mastery and spectator
+  endpoints live on a platform host (`euw1`); account and match endpoints on a
+  regional one (`europe`). `regions.ts` holds the mapping.
+- **Pages stream.** Each page sends its frame at once and the data streams in
+  behind `<Suspense>`; the live game and LP graph load separately so a slow
+  answer never holds up a profile. The Next.js docs for the installed version
+  are in `node_modules/next/dist/docs/`.
+- **Sample data never reaches storage**, and real statistics are never mixed
+  with generated games.
+- **Tests:** `npm test` runs the unit tests. The storage tests also run against
+  Postgres when `TEST_DATABASE_URL` is set.
 
-## Not built yet
+## Ideas for later
 
-Ideas for where to take it next, roughly easiest first:
-
-- **Live game.** Whether the player is in a game right now, and who with
-  (spectator API). One more request per profile.
-- **Leaderboards.** Challenger, Grandmaster and Master ladders per region
-  (league API). No database needed.
-- **Queue filters that reach back in time.** Ask Riot for ranked games only,
-  instead of filtering the games already loaded.
-- **Multi-search.** Paste a champion-select lobby and see all five players.
-- **A performance score per game** (the "MVP / ACE" badge other sites show).
-- **Favourites**, kept in the browser like the recently viewed list.
-- **Other languages.** Data Dragon serves names in most of them.
-- **LP history graph.** Riot does not expose past LP, so this needs a database
-  and a scheduled job that records each tracked player's rank.
-- **Champion pages, tier lists and builds.** These need match data collected
-  across many players over time, not fetched per request.
-- **A shared cache** (Redis or similar) once this runs on more than one server,
-  and a CI workflow that runs lint, tests and a build on every pull request.
+- Match timelines: gold graphs and item build order (match-v5 timeline endpoint)
+- Rank distribution for a region, built from the collected snapshots
+- Champion matchups and counters from the collected games
+- Other languages, since Data Dragon serves names in most of them
+- A shared cache (Redis or similar) once this runs on more than one server
+- A CI workflow running lint, tests and a build on every pull request
 
 ## Legal
 
